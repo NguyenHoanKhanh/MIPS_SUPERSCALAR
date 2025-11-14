@@ -1,0 +1,133 @@
+$date
+	Wed Nov 05 11:01:12 2025
+$end
+$version
+	Icarus Verilog
+$end
+$timescale
+	1s
+$end
+$scope module tb_imem $end
+$var wire 1 ! im_o_ce $end
+$var wire 32 " im_o_instr_1 [31:0] $end
+$var wire 32 # im_o_instr_2 [31:0] $end
+$var reg 1 $ im_clk $end
+$var reg 32 % im_i_addr [31:0] $end
+$var reg 1 & im_i_ce $end
+$var reg 1 ' im_i_change_instr $end
+$var reg 1 ( im_rst $end
+$scope module im $end
+$var wire 32 ) addr_1 [31:0] $end
+$var wire 32 * addr_2 [31:0] $end
+$var wire 32 + addr_3 [31:0] $end
+$var wire 1 , im_clk $end
+$var wire 32 - im_i_addr [31:0] $end
+$var wire 1 . im_i_ce $end
+$var wire 1 / im_i_change_instr $end
+$var wire 1 0 im_rst $end
+$var reg 1 1 im_o_ce $end
+$var reg 32 2 im_o_instr_1 [31:0] $end
+$var reg 32 3 im_o_instr_2 [31:0] $end
+$var reg 32 4 temp_addr2 [31:0] $end
+$var reg 1 5 temp_change_instr $end
+$upscope $end
+$scope task reset $end
+$var integer 32 6 counter [31:0] $end
+$upscope $end
+$upscope $end
+$enddefinitions $end
+#0
+$dumpvars
+b10 6
+05
+b0 4
+b0 3
+b0 2
+01
+00
+0/
+0.
+b0 -
+0,
+b1000 +
+b100 *
+b0 )
+0(
+0'
+0&
+b0 %
+0$
+b0 #
+b0 "
+0!
+$end
+#5
+1$
+1,
+#10
+0$
+0,
+#15
+1(
+10
+1$
+1,
+#20
+0$
+0,
+#25
+b10000110000100000100000 3
+b10000110000100000100000 #
+b100000010000010000000001100100 2
+b100000010000010000000001100100 "
+11
+1!
+b100 4
+1&
+1.
+1$
+1,
+#30
+0$
+0,
+#35
+b10000110000100000100000 2
+b10000110000100000100000 "
+b1000100101000000100101 3
+b1000100101000000100101 #
+15
+b10000 *
+b10100 +
+b1100 %
+b1100 )
+b1100 -
+1'
+1/
+1$
+1,
+#40
+0$
+0,
+#45
+b10000001000010000000001000000 3
+b10000001000010000000001000000 #
+b10001100001000110000000000000000 2
+b10001100001000110000000000000000 "
+05
+b10000 4
+0'
+0/
+1$
+1,
+#50
+0$
+0,
+#55
+1$
+1,
+#60
+0$
+0,
+#65
+1$
+1,

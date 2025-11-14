@@ -1,0 +1,217 @@
+#! /c/iverilog/bin/vvp
+:ivl_version "0.9.7 " "(v0_9_7)";
+:vpi_time_precision + 0;
+:vpi_module "system";
+:vpi_module "v2005_math";
+:vpi_module "va_math";
+S_00A42828 .scope module, "tb_imem" "tb_imem" 2 3;
+ .timescale 0 0;
+v00A7CC98_0 .var "im_clk", 0 0;
+v00A7CDA0_0 .var "im_i_addr", 31 0;
+v00A7CDF8_0 .var "im_i_ce", 0 0;
+v00A7CE50_0 .var "im_i_change_instr", 0 0;
+v00A7CEA8_0 .net "im_o_ce", 0 0, v00A7CCF0_0; 1 drivers
+v00A7D270_0 .net "im_o_instr_1", 31 0, v00A7D2C8_0; 1 drivers
+v00A7D320_0 .net "im_o_instr_2", 31 0, v00A7CC40_0; 1 drivers
+v00A7D448_0 .var "im_rst", 0 0;
+S_00A42608 .scope task, "reset" "reset" 2 35, 2 35, S_00A42828;
+ .timescale 0 0;
+v00A7CD48_0 .var/i "counter", 31 0;
+E_0136A810 .event posedge, v00A7D060_0;
+TD_tb_imem.reset ;
+    %set/v v00A7D448_0, 0, 1;
+    %load/v 8, v00A7CD48_0, 32;
+T_0.0 %cmp/s 0, 8, 32;
+    %jmp/0xz T_0.1, 5;
+    %add 8, 1, 32;
+    %wait E_0136A810;
+    %jmp T_0.0;
+T_0.1 ;
+    %set/v v00A7D448_0, 1, 1;
+    %end;
+S_00A427A0 .scope module, "im" "imem" 2 11, 3 5, S_00A42828;
+ .timescale 0 0;
+L_0136EBC8 .functor BUFZ 32, v00A7CDA0_0, C4<00000000000000000000000000000000>, C4<00000000000000000000000000000000>, C4<00000000000000000000000000000000>;
+v00A42110_0 .net *"_s12", 32 0, L_00A7DB28; 1 drivers
+v00A42168_0 .net *"_s15", 0 0, C4<0>; 1 drivers
+v00A421C0_0 .net *"_s16", 32 0, C4<000000000000000000000000000001000>; 1 drivers
+v0136B5F0_0 .net *"_s18", 32 0, L_00A7D970; 1 drivers
+v0136B648_0 .net *"_s2", 32 0, L_00A7D708; 1 drivers
+v0136B6A0_0 .net *"_s5", 0 0, C4<0>; 1 drivers
+v01364DC0_0 .net *"_s6", 32 0, C4<000000000000000000000000000000100>; 1 drivers
+v01364E18_0 .net *"_s8", 32 0, L_00A7D918; 1 drivers
+v00A7CFB0_0 .net "addr_1", 31 0, L_0136EBC8; 1 drivers
+v00A7D378_0 .net "addr_2", 31 0, L_00A7DAD0; 1 drivers
+v00A7CF00_0 .net "addr_3", 31 0, L_00A7D760; 1 drivers
+v00A7D060_0 .net "im_clk", 0 0, v00A7CC98_0; 1 drivers
+v00A7D168_0 .net "im_i_addr", 31 0, v00A7CDA0_0; 1 drivers
+v00A7CF58_0 .net "im_i_ce", 0 0, v00A7CDF8_0; 1 drivers
+v00A7D1C0_0 .net "im_i_change_instr", 0 0, v00A7CE50_0; 1 drivers
+v00A7CCF0_0 .var "im_o_ce", 0 0;
+v00A7D2C8_0 .var "im_o_instr_1", 31 0;
+v00A7CC40_0 .var "im_o_instr_2", 31 0;
+v00A7D008_0 .net "im_rst", 0 0, v00A7D448_0; 1 drivers
+v00A7D0B8 .array "mem_instr", 0 6, 31 0;
+v00A7D218_0 .var "temp_addr2", 31 0;
+v00A7D110_0 .var "temp_change_instr", 0 0;
+E_0136A7D0/0 .event negedge, v00A7D008_0;
+E_0136A7D0/1 .event posedge, v00A7D060_0;
+E_0136A7D0 .event/or E_0136A7D0/0, E_0136A7D0/1;
+L_00A7D708 .concat [ 32 1 0 0], v00A7CDA0_0, C4<0>;
+L_00A7D918 .arith/sum 33, L_00A7D708, C4<000000000000000000000000000000100>;
+L_00A7DAD0 .part L_00A7D918, 0, 32;
+L_00A7DB28 .concat [ 32 1 0 0], v00A7CDA0_0, C4<0>;
+L_00A7D970 .arith/sum 33, L_00A7DB28, C4<000000000000000000000000000001000>;
+L_00A7D760 .part L_00A7D970, 0, 32;
+    .scope S_00A427A0;
+T_1 ;
+    %wait E_0136A7D0;
+    %load/v 8, v00A7D008_0, 1;
+    %inv 8, 1;
+    %jmp/0xz  T_1.0, 8;
+    %vpi_call 3 25 "$readmemh", "./source/imem.txt", v00A7D0B8, 1'sb0, 4'sb0110;
+    %ix/load 0, 1, 0;
+    %assign/v0 v00A7CCF0_0, 0, 0;
+    %ix/load 0, 32, 0;
+    %assign/v0 v00A7D2C8_0, 0, 0;
+    %ix/load 0, 32, 0;
+    %assign/v0 v00A7CC40_0, 0, 0;
+    %ix/load 0, 1, 0;
+    %assign/v0 v00A7D110_0, 0, 0;
+    %ix/load 0, 32, 0;
+    %assign/v0 v00A7D218_0, 0, 0;
+    %jmp T_1.1;
+T_1.0 ;
+    %load/v 8, v00A7CF58_0, 1;
+    %jmp/0xz  T_1.2, 8;
+    %load/v 8, v00A7D378_0, 32;
+    %ix/load 0, 32, 0;
+    %assign/v0 v00A7D218_0, 0, 8;
+    %load/v 8, v00A7D1C0_0, 1;
+    %ix/load 0, 1, 0;
+    %assign/v0 v00A7D110_0, 0, 8;
+    %load/v 8, v00A7D1C0_0, 1;
+    %jmp/0xz  T_1.4, 8;
+    %ix/load 0, 1, 0;
+    %assign/v0 v00A7CCF0_0, 0, 1;
+    %ix/load 1, 2, 0;
+    %mov 4, 0, 1;
+    %jmp/1 T_1.6, 4;
+    %load/x1p 40, v00A7CF00_0, 30;
+    %jmp T_1.7;
+T_1.6 ;
+    %mov 40, 2, 30;
+T_1.7 ;
+; Save base=40 wid=30 in lookaside.
+    %ix/get 3, 40, 30;
+    %load/av 8, v00A7D0B8, 32;
+    %ix/load 0, 32, 0;
+    %assign/v0 v00A7CC40_0, 0, 8;
+    %ix/load 1, 2, 0;
+    %mov 4, 0, 1;
+    %jmp/1 T_1.8, 4;
+    %load/x1p 40, v00A7D218_0, 30;
+    %jmp T_1.9;
+T_1.8 ;
+    %mov 40, 2, 30;
+T_1.9 ;
+; Save base=40 wid=30 in lookaside.
+    %ix/get 3, 40, 30;
+    %load/av 8, v00A7D0B8, 32;
+    %ix/load 0, 32, 0;
+    %assign/v0 v00A7D2C8_0, 0, 8;
+    %jmp T_1.5;
+T_1.4 ;
+    %ix/load 0, 1, 0;
+    %assign/v0 v00A7CCF0_0, 0, 1;
+    %ix/load 1, 2, 0;
+    %mov 4, 0, 1;
+    %jmp/1 T_1.10, 4;
+    %load/x1p 40, v00A7CFB0_0, 30;
+    %jmp T_1.11;
+T_1.10 ;
+    %mov 40, 2, 30;
+T_1.11 ;
+; Save base=40 wid=30 in lookaside.
+    %ix/get 3, 40, 30;
+    %load/av 8, v00A7D0B8, 32;
+    %ix/load 0, 32, 0;
+    %assign/v0 v00A7D2C8_0, 0, 8;
+    %ix/load 1, 2, 0;
+    %mov 4, 0, 1;
+    %jmp/1 T_1.12, 4;
+    %load/x1p 40, v00A7D378_0, 30;
+    %jmp T_1.13;
+T_1.12 ;
+    %mov 40, 2, 30;
+T_1.13 ;
+; Save base=40 wid=30 in lookaside.
+    %ix/get 3, 40, 30;
+    %load/av 8, v00A7D0B8, 32;
+    %ix/load 0, 32, 0;
+    %assign/v0 v00A7CC40_0, 0, 8;
+T_1.5 ;
+    %jmp T_1.3;
+T_1.2 ;
+    %ix/load 0, 1, 0;
+    %assign/v0 v00A7CCF0_0, 0, 0;
+    %ix/load 0, 32, 0;
+    %assign/v0 v00A7D2C8_0, 0, 0;
+    %ix/load 0, 32, 0;
+    %assign/v0 v00A7CC40_0, 0, 0;
+T_1.3 ;
+T_1.1 ;
+    %jmp T_1;
+    .thread T_1;
+    .scope S_00A42828;
+T_2 ;
+    %vpi_call 2 23 "$dumpfile", "./waveform/imem.vcd";
+    %vpi_call 2 24 "$dumpvars", 1'sb0, S_00A42828;
+    %end;
+    .thread T_2;
+    .scope S_00A42828;
+T_3 ;
+    %set/v v00A7CC98_0, 0, 1;
+    %set/v v00A7CDF8_0, 0, 1;
+    %set/v v00A7CDA0_0, 0, 32;
+    %set/v v00A7CE50_0, 0, 1;
+    %end;
+    .thread T_3;
+    .scope S_00A42828;
+T_4 ;
+    %delay 5, 0;
+    %load/v 8, v00A7CC98_0, 1;
+    %inv 8, 1;
+    %set/v v00A7CC98_0, 8, 1;
+    %jmp T_4;
+    .thread T_4;
+    .scope S_00A42828;
+T_5 ;
+    %movi 8, 2, 32;
+    %set/v v00A7CD48_0, 8, 32;
+    %fork TD_tb_imem.reset, S_00A42608;
+    %join;
+    %wait E_0136A810;
+    %set/v v00A7CDF8_0, 1, 1;
+    %set/v v00A7CDA0_0, 0, 32;
+    %wait E_0136A810;
+    %set/v v00A7CE50_0, 1, 1;
+    %movi 8, 12, 32;
+    %set/v v00A7CDA0_0, 8, 32;
+    %wait E_0136A810;
+    %set/v v00A7CE50_0, 0, 1;
+    %delay 20, 0;
+    %vpi_call 2 53 "$finish";
+    %end;
+    .thread T_5;
+    .scope S_00A42828;
+T_6 ;
+    %vpi_call 2 57 "$monitor", $time, " ", " im_o_instr_1 = %h, im_o_instr_2 = %h, im_o_ce = %b", v00A7D270_0, v00A7D320_0, v00A7CEA8_0;
+    %end;
+    .thread T_6;
+# The file index is used to find the file name in the following table.
+:file_names 4;
+    "N/A";
+    "<interactive>";
+    ".\test\tb_imem.v";
+    "././source/imem.v";

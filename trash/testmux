@@ -1,0 +1,53 @@
+#! /c/iverilog/bin/vvp
+:ivl_version "0.9.7 " "(v0_9_7)";
+:vpi_time_precision + 0;
+:vpi_module "system";
+:vpi_module "v2005_math";
+:vpi_module "va_math";
+S_012982E0 .scope module, "tb_mux" "tb_mux" 2 3;
+ .timescale 0 0;
+v012990C8_0 .var "md_i_addr_rd", 4 0;
+v01299120_0 .var "md_i_addr_rt", 4 0;
+v011615F0_0 .net "md_o_addr_rd", 4 0, L_01161438; 1 drivers
+v01161070_0 .var "md_reg_dst", 0 0;
+S_012989C8 .scope module, "md" "mux_des" 2 8, 3 5, S_012982E0;
+ .timescale 0 0;
+L_0129EBF8 .functor XNOR 1, v01161070_0, C4<1>, C4<0>, C4<0>;
+L_0129ECD0 .functor XNOR 1, v01161070_0, C4<0>, C4<0>, C4<0>;
+v01293C90_0 .net *"_s0", 0 0, C4<1>; 1 drivers
+v01293CE8_0 .net *"_s10", 4 0, L_01161540; 1 drivers
+v01293D40_0 .net *"_s2", 0 0, L_0129EBF8; 1 drivers
+v01294E90_0 .net *"_s4", 0 0, C4<0>; 1 drivers
+v01294EE8_0 .net *"_s6", 0 0, L_0129ECD0; 1 drivers
+v01294F40_0 .net *"_s8", 4 0, C4<00000>; 1 drivers
+v01298F68_0 .net "md_i_addr_rd", 4 0, v012990C8_0; 1 drivers
+v01298FC0_0 .net "md_i_addr_rt", 4 0, v01299120_0; 1 drivers
+v01299018_0 .alias "md_o_addr_rd", 4 0, v011615F0_0;
+v01299070_0 .net "md_reg_dst", 0 0, v01161070_0; 1 drivers
+L_01161540 .functor MUXZ 5, C4<00000>, v01299120_0, L_0129ECD0, C4<>;
+L_01161438 .functor MUXZ 5, L_01161540, v012990C8_0, L_0129EBF8, C4<>;
+    .scope S_012982E0;
+T_0 ;
+    %delay 10, 0;
+    %set/v v01161070_0, 0, 1;
+    %movi 8, 10, 5;
+    %set/v v01299120_0, 8, 5;
+    %delay 10, 0;
+    %set/v v01161070_0, 1, 1;
+    %movi 8, 5, 5;
+    %set/v v012990C8_0, 8, 5;
+    %delay 10, 0;
+    %vpi_call 2 22 "$finish";
+    %end;
+    .thread T_0;
+    .scope S_012982E0;
+T_1 ;
+    %vpi_call 2 26 "$monitor", $time, " ", " md_o_addr_rd = %d", v011615F0_0;
+    %end;
+    .thread T_1;
+# The file index is used to find the file name in the following table.
+:file_names 4;
+    "N/A";
+    "<interactive>";
+    ".\test\tb_mux.v";
+    "././source/mux_des.v";
