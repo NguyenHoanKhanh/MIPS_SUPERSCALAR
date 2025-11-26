@@ -10,7 +10,7 @@
 `include "./source/forwarding.v"
 `include "./source/treat_load.v"
 `include "./source/treat_store.v"
-`include "./source/check_dup_rd.v"
+`include "./source/check_dup.v"
 `include "./source/control_hazard.v"
 `include "./source/queue_instr.v"
 module datapath(

@@ -46,4 +46,4 @@
 `define IMM_WIDTH 16
 `define ALU_CONTROL 5
 `define JUMP_WIDTH 26
-`define DEPTH 4
+`define DEPTH 3

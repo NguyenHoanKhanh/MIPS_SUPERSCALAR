@@ -11,7 +11,7 @@ module mux3_1(
     input [`DWIDTH - 1 : 0] write_back_data;
     output [`DWIDTH - 1 : 0] data_out;
 
-    assign data_out = (forwarding == 2'd2) ? alu_value : (forwarding == 2'd1) ? write_back_data : 
+    assign data_out = (forwarding == 2'd2) ? write_back_data : (forwarding == 2'd1) ? alu_value : 
                         (forwarding == 2'd0) ? data : {`DWIDTH{1'b0}};
 endmodule
 `endif 

@@ -5,10 +5,9 @@
 `include "./source/alu_control.v"
 `include "./source/treat_jal.v"
 
-module execute_1 (
+module execute_stage (
     es_i_ce, es_i_fetch_queue, es_i_jr, es_i_jal, es_i_jal_addr, es_i_pc, es_i_alu_src, es_i_imm, es_i_alu_op, es_i_alu_funct,
-    es_i_data_rs, es_i_data_rt, es_o_alu_value, es_o_ce, es_o_change_pc, es_o_alu_pc, es_o_check_queue, es_o_opcode,
-    es_o_fetch_queue
+    es_i_data_rs, es_i_data_rt, es_o_alu_value, es_o_ce, es_o_change_pc, es_o_alu_pc, es_o_opcode, es_o_fetch_queue
 );  
     input es_i_ce;
     input es_i_jr;
@@ -24,7 +23,6 @@ module execute_1 (
     output reg es_o_ce;
     output es_o_change_pc;
     output es_o_fetch_queue;
-    output es_o_check_queue;
     output [`PC_WIDTH - 1 : 0] es_o_alu_pc;
     output reg [`DWIDTH - 1 : 0] es_o_alu_value;
     output reg [`OPCODE_WIDTH - 1 : 0] es_o_opcode;

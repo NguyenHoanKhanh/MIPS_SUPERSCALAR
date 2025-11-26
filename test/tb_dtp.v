@@ -1,5 +1,5 @@
-`include "./source/dtp.v"
-
+// `include "./source/dtp.v"
+`include "./source/data.v"
 module tb;
     reg d_clk, d_rst;
     reg d_i_ce;
@@ -44,7 +44,7 @@ module tb;
         reset(2);
         @(posedge d_clk);
         d_i_ce = 1'b1;
-        repeat(10) @(posedge d_clk);
+        repeat(12) @(posedge d_clk);
         $finish;
     end
 

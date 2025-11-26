@@ -1,0 +1,46 @@
+#! /c/iverilog/bin/vvp
+:ivl_version "0.9.7 " "(v0_9_7)";
+:vpi_time_precision + 0;
+:vpi_module "system";
+:vpi_module "v2005_math";
+:vpi_module "va_math";
+S_011D79A0 .scope module, "tb_mux_instr" "tb_mux_instr" 2 3;
+ .timescale 0 0;
+v011D33F0_0 .var "mx_i_check_queue", 0 0;
+v011D3448_0 .var "mx_i_mem_instr", 31 0;
+v01213948_0 .var "mx_i_queue_instr", 31 0;
+v012139A0_0 .net "mx_o_instr", 31 0, L_012139F8; 1 drivers
+S_011D7120 .scope module, "m" "mux2_1_check_queue" 2 9, 3 5, S_011D79A0;
+ .timescale 0 0;
+v011D37F8_0 .net "mx_i_check_queue", 0 0, v011D33F0_0; 1 drivers
+v011D3850_0 .net "mx_i_mem_instr", 31 0, v011D3448_0; 1 drivers
+v011D38A8_0 .net "mx_i_queue_instr", 31 0, v01213948_0; 1 drivers
+v011D3398_0 .alias "mx_o_instr", 31 0, v012139A0_0;
+L_012139F8 .functor MUXZ 32, v011D3448_0, v01213948_0, v011D33F0_0, C4<>;
+    .scope S_011D79A0;
+T_0 ;
+    %delay 5, 0;
+    %set/v v011D33F0_0, 1, 1;
+    %movi 8, 3405695742, 32;
+    %set/v v01213948_0, 8, 32;
+    %movi 8, 4210752250, 32;
+    %set/v v011D3448_0, 8, 32;
+    %delay 5, 0;
+    %set/v v011D33F0_0, 0, 1;
+    %movi 8, 3405695742, 32;
+    %set/v v01213948_0, 8, 32;
+    %movi 8, 4210752250, 32;
+    %set/v v011D3448_0, 8, 32;
+    %end;
+    .thread T_0;
+    .scope S_011D79A0;
+T_1 ;
+    %vpi_call 2 28 "$monitor", $time, " ", " mx_o_instr = %h", v012139A0_0;
+    %end;
+    .thread T_1;
+# The file index is used to find the file name in the following table.
+:file_names 4;
+    "N/A";
+    "<interactive>";
+    ".\test\tb_mux_instr.v";
+    "././source/mux2_1_check_queue.v";

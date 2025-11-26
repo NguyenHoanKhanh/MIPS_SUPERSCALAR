@@ -11,7 +11,8 @@ module check_dup (
     output cd_o_we;
 
     assign cd_o_we = ((cd_i_addr_rd_1 == cd_i_addr_rs_2) && (cd_i_addr_rd_1 != cd_i_addr_rt_2)) ? 1'b1 : 
-                            ((cd_i_addr_rd_1 == cd_i_addr_rt_2) && (cd_i_addr_rd_1 != cd_i_addr_rs_2)) ? 1'b1 : 
+                            ((cd_i_addr_rd_1 == cd_i_addr_rt_2) && (cd_i_addr_rd_1 != cd_i_addr_rs_2)) ? 1'b1 :
+                            ((cd_i_addr_rd_1 != cd_i_addr_rt_2) && (cd_i_addr_rd_1 != cd_i_addr_rs_2)) ? 1'b0 : 
                             (cd_i_opcode_2 == `JR) ? 1'b1 : 1'b0;
 endmodule
 `endif 

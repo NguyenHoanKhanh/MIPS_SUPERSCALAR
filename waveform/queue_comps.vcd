@@ -1,0 +1,385 @@
+$date
+	Wed Nov 26 14:14:44 2025
+$end
+$version
+	Icarus Verilog
+$end
+$timescale
+	1ps
+$end
+$scope module tb_queue_comps $end
+$var wire 5 ! qc_o_addr_rd [4:0] $end
+$var wire 5 " qc_o_addr_rs [4:0] $end
+$var wire 5 # qc_o_addr_rt [4:0] $end
+$var wire 1 $ qc_o_alu_src $end
+$var wire 1 % qc_o_ce $end
+$var wire 32 & qc_o_data_rs [31:0] $end
+$var wire 32 ' qc_o_data_rt [31:0] $end
+$var wire 6 ( qc_o_funct [5:0] $end
+$var wire 16 ) qc_o_imm [15:0] $end
+$var wire 1 * qc_o_jal $end
+$var wire 26 + qc_o_jal_addr [25:0] $end
+$var wire 1 , qc_o_jr $end
+$var wire 1 - qc_o_memtoreg $end
+$var wire 1 . qc_o_memwrite $end
+$var wire 6 / qc_o_opcode [5:0] $end
+$var wire 32 0 qc_o_pc [31:0] $end
+$var wire 1 1 qc_o_reg_dst $end
+$var wire 1 2 qc_o_reg_write $end
+$var reg 1 3 qc_clk $end
+$var reg 5 4 qc_i_addr_rd [4:0] $end
+$var reg 5 5 qc_i_addr_rs [4:0] $end
+$var reg 5 6 qc_i_addr_rt [4:0] $end
+$var reg 1 7 qc_i_alu_src $end
+$var reg 1 8 qc_i_ce $end
+$var reg 32 9 qc_i_data_rs [31:0] $end
+$var reg 32 : qc_i_data_rt [31:0] $end
+$var reg 6 ; qc_i_funct [5:0] $end
+$var reg 16 < qc_i_imm [15:0] $end
+$var reg 1 = qc_i_jal $end
+$var reg 26 > qc_i_jal_addr [25:0] $end
+$var reg 1 ? qc_i_jr $end
+$var reg 1 @ qc_i_memtoreg $end
+$var reg 1 A qc_i_memwrite $end
+$var reg 6 B qc_i_opcode [5:0] $end
+$var reg 32 C qc_i_pc [31:0] $end
+$var reg 1 D qc_i_re $end
+$var reg 1 E qc_i_reg_dst $end
+$var reg 1 F qc_i_reg_write $end
+$var reg 1 G qc_i_we $end
+$var reg 1 H qc_rst $end
+$scope module uut $end
+$var wire 1 I qc_clk $end
+$var wire 5 J qc_i_addr_rd [4:0] $end
+$var wire 5 K qc_i_addr_rs [4:0] $end
+$var wire 5 L qc_i_addr_rt [4:0] $end
+$var wire 1 M qc_i_alu_src $end
+$var wire 1 N qc_i_ce $end
+$var wire 32 O qc_i_data_rs [31:0] $end
+$var wire 32 P qc_i_data_rt [31:0] $end
+$var wire 6 Q qc_i_funct [5:0] $end
+$var wire 16 R qc_i_imm [15:0] $end
+$var wire 1 S qc_i_jal $end
+$var wire 26 T qc_i_jal_addr [25:0] $end
+$var wire 1 U qc_i_jr $end
+$var wire 1 V qc_i_memtoreg $end
+$var wire 1 W qc_i_memwrite $end
+$var wire 6 X qc_i_opcode [5:0] $end
+$var wire 32 Y qc_i_pc [31:0] $end
+$var wire 1 Z qc_i_re $end
+$var wire 1 [ qc_i_reg_dst $end
+$var wire 1 \ qc_i_reg_write $end
+$var wire 1 ] qc_i_we $end
+$var wire 5 ^ qc_o_addr_rd [4:0] $end
+$var wire 5 _ qc_o_addr_rs [4:0] $end
+$var wire 5 ` qc_o_addr_rt [4:0] $end
+$var wire 1 $ qc_o_alu_src $end
+$var wire 1 % qc_o_ce $end
+$var wire 32 a qc_o_data_rs [31:0] $end
+$var wire 32 b qc_o_data_rt [31:0] $end
+$var wire 6 c qc_o_funct [5:0] $end
+$var wire 16 d qc_o_imm [15:0] $end
+$var wire 1 * qc_o_jal $end
+$var wire 26 e qc_o_jal_addr [25:0] $end
+$var wire 1 , qc_o_jr $end
+$var wire 1 - qc_o_memtoreg $end
+$var wire 1 . qc_o_memwrite $end
+$var wire 6 f qc_o_opcode [5:0] $end
+$var wire 32 g qc_o_pc [31:0] $end
+$var wire 1 1 qc_o_reg_dst $end
+$var wire 1 2 qc_o_reg_write $end
+$var wire 1 h qc_rst $end
+$var reg 8 i count [7:0] $end
+$var reg 8 j from_begin [7:0] $end
+$var reg 8 k from_end [7:0] $end
+$var integer 32 l i [31:0] $end
+$upscope $end
+$scope task write_queue $end
+$var reg 6 m opcode_val [5:0] $end
+$var reg 32 n pc_val [31:0] $end
+$upscope $end
+$upscope $end
+$enddefinitions $end
+#0
+$dumpvars
+bx n
+bx m
+bx l
+bx k
+bx j
+bx i
+1h
+bx g
+bx f
+bx e
+bx d
+bx c
+bx b
+bx a
+bx `
+bx _
+bx ^
+0]
+x\
+x[
+0Z
+b0 Y
+bx X
+xW
+xV
+xU
+bx T
+xS
+bx R
+bx Q
+bx P
+bx O
+xN
+xM
+bx L
+bx K
+bx J
+0I
+1H
+0G
+xF
+xE
+0D
+b0 C
+bx B
+xA
+x@
+x?
+bx >
+x=
+bx <
+bx ;
+bx :
+bx 9
+x8
+x7
+bx 6
+bx 5
+bx 4
+03
+x2
+x1
+bx 0
+bx /
+x.
+x-
+x,
+bx +
+x*
+bx )
+bx (
+bx '
+bx &
+x%
+x$
+bx #
+bx "
+bx !
+$end
+#5000
+13
+1I
+#10000
+b0 j
+b0 k
+0%
+0,
+b0 0
+b0 g
+b0 )
+b0 d
+0*
+b0 (
+b0 c
+b0 /
+b0 f
+b0 !
+b0 ^
+b0 "
+b0 _
+b0 #
+b0 `
+b0 &
+b0 a
+b0 '
+b0 b
+01
+0$
+b0 +
+b0 e
+0-
+0.
+02
+b0 i
+b1000 l
+03
+0I
+0H
+0h
+#15000
+13
+1I
+#20000
+03
+0I
+1H
+1h
+#25000
+13
+1I
+#30000
+b1 j
+b1 i
+12
+bx +
+bx e
+b11001100110011001101110111011101 '
+b11001100110011001101110111011101 b
+b10101010101010101011101110111011 &
+b10101010101010101011101110111011 a
+b11 #
+b11 `
+b10 "
+b10 _
+b1 !
+b1 ^
+11
+b10 /
+b10 f
+bx (
+bx c
+bx )
+bx d
+b10100 0
+b10100 g
+1%
+03
+0I
+b11 6
+b11 L
+b10 5
+b10 K
+b1 4
+b1 J
+b11001100110011001101110111011101 :
+b11001100110011001101110111011101 P
+b10101010101010101011101110111011 9
+b10101010101010101011101110111011 O
+1F
+1\
+0A
+0W
+0@
+0V
+07
+0M
+1E
+1[
+0=
+0S
+0?
+0U
+18
+1N
+b10 B
+b10 X
+b10100 C
+b10100 Y
+1G
+1]
+b10 m
+b10100 n
+#35000
+13
+1I
+#40000
+b10 j
+b10 i
+b11 B
+b11 X
+b11000 C
+b11000 Y
+b11 m
+b11000 n
+1G
+1]
+03
+0I
+#45000
+13
+1I
+#50000
+b1 k
+b11000 0
+b11000 g
+b11 /
+b11 f
+b1 i
+1D
+1Z
+0G
+0]
+03
+0I
+#55000
+13
+1I
+#60000
+b10 k
+0%
+b0 0
+b0 g
+b0 )
+b0 d
+b0 (
+b0 c
+b0 /
+b0 f
+b0 !
+b0 ^
+b0 "
+b0 _
+b0 #
+b0 `
+b0 &
+b0 a
+b0 '
+b0 b
+01
+b0 +
+b0 e
+02
+b0 i
+03
+0I
+#65000
+13
+1I
+#70000
+0D
+0Z
+03
+0I
+#75000
+13
+1I
+#80000
+03
+0I
+b100000 C
+b100000 Y
+0D
+0Z
+0G
+0]
+#85000
+13
+1I
+#90000
+03
+0I
