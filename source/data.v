@@ -1,5 +1,5 @@
-`ifndef DTP_V
-`define DTP_V
+`ifndef DATA_V
+`define DATA_V
 `include "./source/mux.v"
 `include "./source/imem.v"
 `include "./source/regis.v"
@@ -10,8 +10,9 @@
 `include "./source/decoder_s.v"
 `include "./source/forwarding.v"
 `include "./source/treat_load.v"
+`include "./source/check_instr.v"
 `include "./source/treat_store.v"
-`include "./source/queue_instr.v"
+`include "./source/choose_comps.v"
 `include "./source/mux_components.v"
 `include "./source/control_hazard.v"
 `include "./source/execute_stage_1.v"
@@ -89,7 +90,7 @@ module datapath (
                 im_ds1_o_pc <= im_ds1_o_pc;     
                 im_ds1_o_instr <= im_ds1_o_instr;
             end
-        end
+end
     end
 
     always @(posedge d_clk, negedge d_rst) begin
@@ -182,8 +183,8 @@ module datapath (
         .ds_o_alu_src(ds2_o_alu_src), 
         .ds_o_jal_addr(ds2_o_jal_addr), 
         .ds_o_memwrite(ds2_o_memwrite), 
-        .ds_o_memtoreg(ds2_o_memtoreg), 
-        .ds_o_reg_write(ds2_o_reg_write)
+        .ds_o_memtoreg(ds2_o_memtoreg),
+.ds_o_reg_write(ds2_o_reg_write)
     );
 
     wire [`DWIDTH - 1 : 0] r_o_data_rs_1, r_o_data_rt_1;
@@ -241,33 +242,43 @@ module datapath (
     //the queue_instr to queue_comps
 
     wire cd1_o_we;  
+    wire cd1_o_force_pipe1;
     reg cd1_q1_o_we;
+    reg cd1_q1_force_pipe1;
     check_dup cd1 (
         .cd_i_addr_rd_1(ds1_o_addr_rd), 
         .cd_i_addr_rs_2(ds2_o_addr_rs), 
         .cd_i_addr_rt_2(ds2_o_addr_rt), 
         .cd_i_opcode_2(ds1_o_opcode), 
-        .cd_o_we(cd1_o_we)
+        .cd_o_we(cd1_o_we),
+        .cd_o_force_pipe1(cd1_o_force_pipe1)
     );
 
     wire cd2_o_we;
+    wire cd2_o_force_pipe1;
     reg cd2_q2_o_we;
+    reg cd2_q2_force_pipe1;
     check_dup cd2 (
         .cd_i_addr_rd_1(ds2_es2_o_addr_rd), 
         .cd_i_addr_rs_2(ds1_o_addr_rs), 
         .cd_i_addr_rt_2(ds1_o_addr_rt), 
         .cd_i_opcode_2(ds2_o_opcode), 
-        .cd_o_we(cd2_o_we)
+        .cd_o_we(cd2_o_we),
+        .cd_o_force_pipe1(cd2_o_force_pipe1)
     );
 
     always @(posedge d_clk, negedge d_rst) begin
         if (!d_rst) begin
             cd1_q1_o_we <= 1'b0;
             cd2_q2_o_we <= 1'b0;
+            cd1_q1_force_pipe1 <= 1'b0;
+            cd2_q2_force_pipe1 <= 1'b0;
         end
         else begin
             cd1_q1_o_we <= cd1_o_we;
             cd2_q2_o_we <= cd2_o_we;
+            cd1_q1_force_pipe1 <= cd1_o_force_pipe1;
+            cd2_q2_force_pipe1 <= cd2_o_force_pipe1;
         end
     end
 
@@ -282,7 +293,7 @@ module datapath (
     reg [`PC_WIDTH - 1 : 0] ds1_es1_o_pc;
     reg [`IMM_WIDTH - 1 : 0] ds1_es1_o_imm;
     reg [`FUNCT_WIDTH - 1 : 0] ds1_es1_o_funct;
-    reg [`OPCODE_WIDTH - 1 : 0] ds1_es1_o_opcode;
+reg [`OPCODE_WIDTH - 1 : 0] ds1_es1_o_opcode;
     reg [`JUMP_WIDTH - 1 : 0] ds1_es1_o_jal_addr;
     reg [`DWIDTH - 1 : 0] ds1_es1_o_data_rs, ds1_es1_o_data_rt;
     reg [`AWIDTH - 1 : 0] ds1_es1_o_addr_rd, ds1_es1_o_addr_rs, ds1_es1_o_addr_rt;
@@ -302,6 +313,7 @@ module datapath (
     reg [`JUMP_WIDTH - 1 : 0] ds2_es2_o_jal_addr;
     reg [`DWIDTH - 1 : 0] ds2_es2_o_data_rs, ds2_es2_o_data_rt;
     reg [`AWIDTH - 1 : 0] ds2_es2_o_addr_rd, ds2_es2_o_addr_rs, ds2_es2_o_addr_rt;
+    
     always @(posedge d_clk, negedge d_rst) begin
         if (!d_rst) begin
             ds1_es1_o_ce <= 1'b0;
@@ -324,69 +336,47 @@ module datapath (
             ds1_es1_o_jal_addr <= {`JUMP_WIDTH{1'b0}};
         end
         else begin
-            // if (cd2_q2_o_we) begin
-            //     ds1_es1_o_ce <= 1'b0;
-            //     ds1_es1_o_jr <= 1'b0;
-            //     ds1_es1_o_jal <= 1'b0;
-            //     ds1_es1_o_reg_dst <= 1'b0;
-            //     ds1_es1_o_alu_src <= 1'b0;
-            //     ds1_es1_o_memtoreg <= 1'b0;
-            //     ds1_es1_o_memwrite <= 1'b0;
-            //     ds1_es1_o_reg_write <= 1'b0;
-            //     ds1_es1_o_pc <= {`PC_WIDTH{1'b0}};
-            //     ds1_es1_o_imm <= {`IMM_WIDTH{1'b0}};
-            //     ds1_es1_o_data_rs <= {`DWIDTH{1'b0}};
-            //     ds1_es1_o_data_rt <= {`DWIDTH{1'b0}};
-            //     ds1_es1_o_addr_rd <= {`AWIDTH{1'b0}};
-            //     ds1_es1_o_addr_rs <= {`AWIDTH{1'b0}};
-            //     ds1_es1_o_addr_rt <= {`AWIDTH{1'b0}};
-            //     ds1_es1_o_funct <= {`FUNCT_WIDTH{1'b0}};
-            //     ds1_es1_o_opcode <= {`OPCODE_WIDTH{1'b0}};
-            //     ds1_es1_o_jal_addr <= {`JUMP_WIDTH{1'b0}};
-            // end
-            // else begin
-                if (!fw1_o_stall) begin
-                    ds1_es1_o_ce <= ds1_o_ce;
-                    ds1_es1_o_jr <= ds1_o_jr;
-                    ds1_es1_o_jal <= ds1_o_jal;
-                    ds1_es1_o_imm <= ds1_o_imm;
-                    ds1_es1_o_pc <= im_ds1_o_pc;
-                    ds1_es1_o_funct <= ds1_o_funct;
-                    ds1_es1_o_opcode <= ds1_o_opcode;
-                    ds1_es1_o_reg_dst <= ds1_o_reg_dst;
-                    ds1_es1_o_alu_src <= ds1_o_alu_src;
-                    ds1_es1_o_data_rs <= r_o_data_rs_1;
-                    ds1_es1_o_data_rt <= r_o_data_rt_1;
-                    ds1_es1_o_addr_rd <= ds1_o_addr_rd;
-                    ds1_es1_o_addr_rs <= ds1_o_addr_rs;
-                    ds1_es1_o_addr_rt <= ds1_o_addr_rt;
-                    ds1_es1_o_memtoreg <= ds1_o_memtoreg;
-                    ds1_es1_o_memwrite <= ds1_o_memwrite;
-                    ds1_es1_o_jal_addr <= ds1_o_jal_addr;
-                    ds1_es1_o_reg_write <= ds1_o_reg_write;
-                end
-                else begin
-                    ds1_es1_o_ce <= ds1_es1_o_ce;
-                    ds1_es1_o_jr <= ds1_es1_o_jr;
-                    ds1_es1_o_pc <= ds1_es1_o_pc;
-                    ds1_es1_o_jal <= ds1_es1_o_jal;
-                    ds1_es1_o_imm <= ds1_es1_o_imm;
-                    ds1_es1_o_funct <= ds1_es1_o_funct;
-                    ds1_es1_o_opcode <= ds1_es1_o_opcode;
-                    ds1_es1_o_reg_dst <= ds1_es1_o_reg_dst;
-                    ds1_es1_o_alu_src <= ds1_es1_o_alu_src;
-                    ds1_es1_o_data_rs <= ds1_es1_o_data_rs;
-                    ds1_es1_o_data_rt <= ds1_es1_o_data_rt;
-                    ds1_es1_o_addr_rd <= ds1_es1_o_addr_rd;
-                    ds1_es1_o_addr_rs <= ds1_es1_o_addr_rs;
-                    ds1_es1_o_addr_rt <= ds1_es1_o_addr_rt;
-                    ds1_es1_o_jal_addr <= ds1_es1_o_jal_addr;
-                    ds1_es1_o_memtoreg <= ds1_es1_o_memtoreg;
-                    ds1_es1_o_memwrite <= ds1_es1_o_memwrite;
-                    ds1_es1_o_reg_write <= ds1_es1_o_reg_write;
-                end
+            if (!fw1_o_stall) begin
+                ds1_es1_o_ce <= ds1_o_ce;
+                ds1_es1_o_jr <= ds1_o_jr;
+                ds1_es1_o_jal <= ds1_o_jal;
+                ds1_es1_o_imm <= ds1_o_imm;
+                ds1_es1_o_pc <= im_ds1_o_pc;
+                ds1_es1_o_funct <= ds1_o_funct;
+                ds1_es1_o_opcode <= ds1_o_opcode;
+                ds1_es1_o_reg_dst <= ds1_o_reg_dst;
+                ds1_es1_o_alu_src <= ds1_o_alu_src;
+                ds1_es1_o_data_rs <= r_o_data_rs_1;
+                ds1_es1_o_data_rt <= r_o_data_rt_1;
+                ds1_es1_o_addr_rd <= ds1_o_addr_rd;
+                ds1_es1_o_addr_rs <= ds1_o_addr_rs;
+                ds1_es1_o_addr_rt <= ds1_o_addr_rt;
+                ds1_es1_o_memtoreg <= ds1_o_memtoreg;
+                ds1_es1_o_memwrite <= ds1_o_memwrite;
+                ds1_es1_o_jal_addr <= ds1_o_jal_addr;
+                ds1_es1_o_reg_write <= ds1_o_reg_write;
             end
-        // end
+            else begin
+                ds1_es1_o_ce <= ds1_es1_o_ce;
+                ds1_es1_o_jr <= ds1_es1_o_jr;
+                ds1_es1_o_pc <= ds1_es1_o_pc;
+                ds1_es1_o_jal <= ds1_es1_o_jal;
+                ds1_es1_o_imm <= ds1_es1_o_imm;
+ds1_es1_o_funct <= ds1_es1_o_funct;
+                ds1_es1_o_opcode <= ds1_es1_o_opcode;
+                ds1_es1_o_reg_dst <= ds1_es1_o_reg_dst;
+                ds1_es1_o_alu_src <= ds1_es1_o_alu_src;
+                ds1_es1_o_data_rs <= ds1_es1_o_data_rs;
+                ds1_es1_o_data_rt <= ds1_es1_o_data_rt;
+                ds1_es1_o_addr_rd <= ds1_es1_o_addr_rd;
+                ds1_es1_o_addr_rs <= ds1_es1_o_addr_rs;
+                ds1_es1_o_addr_rt <= ds1_es1_o_addr_rt;
+                ds1_es1_o_jal_addr <= ds1_es1_o_jal_addr;
+                ds1_es1_o_memtoreg <= ds1_es1_o_memtoreg;
+                ds1_es1_o_memwrite <= ds1_es1_o_memwrite;
+                ds1_es1_o_reg_write <= ds1_es1_o_reg_write;
+            end
+        end
     end
 
     always @(posedge d_clk, negedge d_rst) begin
@@ -411,69 +401,47 @@ module datapath (
             ds2_es2_o_jal_addr <= {`JUMP_WIDTH{1'b0}};
         end
         else begin
-            // if (cd1_q1_o_we) begin
-            //     ds2_es2_o_ce <= 1'b0;
-            //     ds2_es2_o_jr <= 1'b0;
-            //     ds2_es2_o_jal <= 1'b0;
-            //     ds2_es2_o_reg_dst <= 1'b0;
-            //     ds2_es2_o_alu_src <= 1'b0;
-            //     ds2_es2_o_memtoreg <= 1'b0;
-            //     ds2_es2_o_memwrite <= 1'b0;
-            //     ds2_es2_o_reg_write <= 1'b0;
-            //     ds2_es2_o_pc <= {`PC_WIDTH{1'b0}};
-            //     ds2_es2_o_imm <= {`IMM_WIDTH{1'b0}};
-            //     ds2_es2_o_data_rs <= {`DWIDTH{1'b0}};
-            //     ds2_es2_o_data_rt <= {`DWIDTH{1'b0}};
-            //     ds2_es2_o_addr_rd <= {`AWIDTH{1'b0}};
-            //     ds2_es2_o_addr_rs <= {`AWIDTH{1'b0}};
-            //     ds2_es2_o_addr_rt <= {`AWIDTH{1'b0}};
-            //     ds2_es2_o_funct <= {`FUNCT_WIDTH{1'b0}};
-            //     ds2_es2_o_opcode <= {`OPCODE_WIDTH{1'b0}};
-            //     ds2_es2_o_jal_addr <= {`JUMP_WIDTH{1'b0}};
-            // end
-            // else begin
-                if (!fw2_o_stall) begin
-                    ds2_es2_o_ce <= ds2_o_ce;
-                    ds2_es2_o_jr <= ds2_o_jr;
-                    ds2_es2_o_jal <= ds2_o_jal;
-                    ds2_es2_o_imm <= ds2_o_imm;
-                    ds2_es2_o_pc <= im_ds2_o_pc;
-                    ds2_es2_o_funct <= ds2_o_funct;
-                    ds2_es2_o_opcode <= ds2_o_opcode;
-                    ds2_es2_o_reg_dst <= ds2_o_reg_dst;
-                    ds2_es2_o_alu_src <= ds2_o_alu_src;
-                    ds2_es2_o_data_rs <= r_o_data_rs_2;
-                    ds2_es2_o_data_rt <= r_o_data_rt_2;
-                    ds2_es2_o_addr_rd <= ds2_o_addr_rd;
-                    ds2_es2_o_addr_rs <= ds2_o_addr_rs;
-                    ds2_es2_o_addr_rt <= ds2_o_addr_rt;
-                    ds2_es2_o_memtoreg <= ds2_o_memtoreg;
-                    ds2_es2_o_memwrite <= ds2_o_memwrite;
-                    ds2_es2_o_jal_addr <= ds2_o_jal_addr;
-                    ds2_es2_o_reg_write <= ds2_o_reg_write;
-                end
-                else begin
-                    ds2_es2_o_ce <= ds2_es2_o_ce;
-                    ds2_es2_o_jr <= ds2_es2_o_jr;
-                    ds2_es2_o_pc <= ds2_es2_o_pc;
-                    ds2_es2_o_jal <= ds2_es2_o_jal;
-                    ds2_es2_o_imm <= ds2_es2_o_imm;
-                    ds2_es2_o_funct <= ds2_es2_o_funct;
-                    ds2_es2_o_opcode <= ds2_es2_o_opcode;
-                    ds2_es2_o_reg_dst <= ds2_es2_o_reg_dst;
-                    ds2_es2_o_alu_src <= ds2_es2_o_alu_src;
-                    ds2_es2_o_data_rs <= ds2_es2_o_data_rs;
-                    ds2_es2_o_data_rt <= ds2_es2_o_data_rt;
-                    ds2_es2_o_addr_rd <= ds2_es2_o_addr_rd;
-                    ds2_es2_o_addr_rs <= ds2_es2_o_addr_rs;
-                    ds2_es2_o_addr_rt <= ds2_es2_o_addr_rt;
-                    ds2_es2_o_memtoreg <= ds2_es2_o_memtoreg;
-                    ds2_es2_o_memwrite <= ds2_es2_o_memwrite;
-                    ds2_es2_o_jal_addr <= ds2_es2_o_jal_addr;
-                    ds2_es2_o_reg_write <= ds2_es2_o_reg_write;
-                end
+            if (!fw2_o_stall) begin
+                ds2_es2_o_ce <= ds2_o_ce;
+                ds2_es2_o_jr <= ds2_o_jr;
+                ds2_es2_o_jal <= ds2_o_jal;
+                ds2_es2_o_imm <= ds2_o_imm;
+                ds2_es2_o_pc <= im_ds2_o_pc;
+                ds2_es2_o_funct <= ds2_o_funct;
+                ds2_es2_o_opcode <= ds2_o_opcode;
+                ds2_es2_o_reg_dst <= ds2_o_reg_dst;
+                ds2_es2_o_alu_src <= ds2_o_alu_src;
+                ds2_es2_o_data_rs <= r_o_data_rs_2;
+                ds2_es2_o_data_rt <= r_o_data_rt_2;
+                ds2_es2_o_addr_rd <= ds2_o_addr_rd;
+                ds2_es2_o_addr_rs <= ds2_o_addr_rs;
+                ds2_es2_o_addr_rt <= ds2_o_addr_rt;
+                ds2_es2_o_memtoreg <= ds2_o_memtoreg;
+                ds2_es2_o_memwrite <= ds2_o_memwrite;
+                ds2_es2_o_jal_addr <= ds2_o_jal_addr;
+                ds2_es2_o_reg_write <= ds2_o_reg_write;
             end
-        // end
+            else begin
+                ds2_es2_o_ce <= ds2_es2_o_ce;
+                ds2_es2_o_jr <= ds2_es2_o_jr;
+                ds2_es2_o_pc <= ds2_es2_o_pc;
+                ds2_es2_o_jal <= ds2_es2_o_jal;
+                ds2_es2_o_imm <= ds2_es2_o_imm;
+                ds2_es2_o_funct <= ds2_es2_o_funct;
+                ds2_es2_o_opcode <= ds2_es2_o_opcode;
+ds2_es2_o_reg_dst <= ds2_es2_o_reg_dst;
+                ds2_es2_o_alu_src <= ds2_es2_o_alu_src;
+                ds2_es2_o_data_rs <= ds2_es2_o_data_rs;
+                ds2_es2_o_data_rt <= ds2_es2_o_data_rt;
+                ds2_es2_o_addr_rd <= ds2_es2_o_addr_rd;
+                ds2_es2_o_addr_rs <= ds2_es2_o_addr_rs;
+                ds2_es2_o_addr_rt <= ds2_es2_o_addr_rt;
+                ds2_es2_o_memtoreg <= ds2_es2_o_memtoreg;
+                ds2_es2_o_memwrite <= ds2_es2_o_memwrite;
+                ds2_es2_o_jal_addr <= ds2_es2_o_jal_addr;
+                ds2_es2_o_reg_write <= ds2_es2_o_reg_write;
+            end
+        end
     end
 
     reg es1_o_qc1, es2_o_qc2;
@@ -497,20 +465,23 @@ module datapath (
     wire qc1_o_reg_dst;
     wire qc1_o_alu_src;
     wire qc1_o_regwrite;
+    wire qc1_o_memtoreg;
+    wire qc1_o_memwrite;
     wire qc1_o_jr, qc1_o_jal;
     wire [`PC_WIDTH - 1 : 0] qc1_o_pc;
-    wire qc1_o_memtoreg, qc1_o_memwrite;
     wire [`IMM_WIDTH - 1 : 0] qc1_o_imm;
     wire [`FUNCT_WIDTH - 1 : 0] qc1_o_funct;
     wire [`JUMP_WIDTH - 1 : 0] qc1_o_jal_addr;
     wire [`OPCODE_WIDTH - 1 : 0] qc1_o_opcode;
     wire [`DWIDTH - 1 : 0] qc1_o_data_rs, qc1_o_data_rt;
     wire [`AWIDTH - 1 : 0] qc1_o_addr_rd, qc1_o_addr_rs, qc1_o_addr_rt;
+    wire qc1_o_force_pipe1;
     queue_comps qc1 (
         .qc_clk(d_clk), 
         .qc_rst(d_rst), 
         .qc_i_re(es1_o_qc1), 
         .qc_i_we(cd1_q1_o_we), 
+        .qc_i_force_pipe1(cd1_q1_force_pipe1),
         .qc_i_ce(ds2_es2_o_ce), 
         .qc_i_jr(ds2_es2_o_jr), 
         .qc_i_pc(ds2_es2_o_pc),
@@ -541,12 +512,13 @@ module datapath (
         .qc_o_addr_rt(qc1_o_addr_rt), 
         .qc_o_reg_dst(qc1_o_reg_dst), 
         .qc_o_alu_src(qc1_o_alu_src), 
-        .qc_o_data_rs(qc1_o_data_rs), 
-        .qc_o_data_rt(qc1_o_data_rt), 
+        .qc_o_data_rs(qc1_o_data_rs),
+.qc_o_data_rt(qc1_o_data_rt), 
         .qc_o_memtoreg(qc1_o_memtoreg), 
         .qc_o_memwrite(qc1_o_memwrite), 
         .qc_o_jal_addr(qc1_o_jal_addr), 
-        .qc_o_regwrite(qc1_o_regwrite)
+        .qc_o_regwrite(qc1_o_regwrite),
+        .qc_o_force_pipe1(qc1_o_force_pipe1)
     );
     // Register queue outputs to stabilize inputs to muxes (avoid racing with negedge sampling)
     reg qc1_o_ce_r;
@@ -563,39 +535,38 @@ module datapath (
     reg qc1_o_reg_dst_r;
     reg qc1_o_alu_src_r;
     reg qc1_o_regwrite_r;
+    reg qc1_o_force_pipe1_r;
 
-        // capture queue outputs on posedge so combinational mux downstream sees stable values
+    // capture queue outputs on posedge so combinational mux downstream sees stable values
     always @(posedge d_clk, negedge d_rst) begin
         if (!d_rst) begin
             qc1_o_ce_r <= 1'b0;
             qc1_o_jr_r <= 1'b0;
             qc1_o_jal_r <= 1'b0;
-            qc1_o_pc_r <= {`PC_WIDTH{1'b0}};
+            qc1_o_reg_dst_r <= 1'b0;
+            qc1_o_alu_src_r <= 1'b0;
             qc1_o_memtoreg_r <= 1'b0;
             qc1_o_memwrite_r <= 1'b0;
+            qc1_o_regwrite_r <= 1'b0;
+            qc1_o_force_pipe1_r <= 1'b0;
+            qc1_o_pc_r <= {`PC_WIDTH{1'b0}};
             qc1_o_imm_r <= {`IMM_WIDTH{1'b0}};
-            qc1_o_funct_r <= {`FUNCT_WIDTH{1'b0}};
-            qc1_o_jal_addr_r <= {`JUMP_WIDTH{1'b0}};
-            qc1_o_opcode_r <= {`OPCODE_WIDTH{1'b0}};
             qc1_o_data_rs_r <= {`DWIDTH{1'b0}};
             qc1_o_data_rt_r <= {`DWIDTH{1'b0}};
             qc1_o_addr_rd_r <= {`AWIDTH{1'b0}};
             qc1_o_addr_rs_r <= {`AWIDTH{1'b0}};
             qc1_o_addr_rt_r <= {`AWIDTH{1'b0}};
-            qc1_o_reg_dst_r <= 1'b0;
-            qc1_o_alu_src_r <= 1'b0;
-            qc1_o_regwrite_r <= 1'b0;
+            qc1_o_funct_r <= {`FUNCT_WIDTH{1'b0}};
+            qc1_o_jal_addr_r <= {`JUMP_WIDTH{1'b0}};
+            qc1_o_opcode_r <= {`OPCODE_WIDTH{1'b0}};
         end
         else begin
             qc1_o_ce_r <= qc1_o_ce;
             qc1_o_jr_r <= qc1_o_jr;
-            qc1_o_jal_r <= qc1_o_jal;
             qc1_o_pc_r <= qc1_o_pc;
-            qc1_o_memtoreg_r <= qc1_o_memtoreg;
-            qc1_o_memwrite_r <= qc1_o_memwrite;
+            qc1_o_jal_r <= qc1_o_jal;
             qc1_o_imm_r <= qc1_o_imm;
             qc1_o_funct_r <= qc1_o_funct;
-            qc1_o_jal_addr_r <= qc1_o_jal_addr;
             qc1_o_opcode_r <= qc1_o_opcode;
             qc1_o_data_rs_r <= qc1_o_data_rs;
             qc1_o_data_rt_r <= qc1_o_data_rt;
@@ -604,7 +575,11 @@ module datapath (
             qc1_o_addr_rt_r <= qc1_o_addr_rt;
             qc1_o_reg_dst_r <= qc1_o_reg_dst;
             qc1_o_alu_src_r <= qc1_o_alu_src;
+            qc1_o_jal_addr_r <= qc1_o_jal_addr;
+            qc1_o_memtoreg_r <= qc1_o_memtoreg;
+            qc1_o_memwrite_r <= qc1_o_memwrite;
             qc1_o_regwrite_r <= qc1_o_regwrite;
+            qc1_o_force_pipe1_r <= qc1_o_force_pipe1;
         end
     end
 
@@ -618,11 +593,11 @@ module datapath (
     wire [`IMM_WIDTH - 1 : 0] mc1_o_imm;
     wire [`FUNCT_WIDTH - 1 : 0] mc1_o_funct;
     wire [`JUMP_WIDTH - 1 : 0] mc1_o_jal_addr;
-    wire [`OPCODE_WIDTH - 1 : 0] mc1_o_opcode;
+wire [`OPCODE_WIDTH - 1 : 0] mc1_o_opcode;
     wire [`DWIDTH - 1 : 0] mc1_o_data_rs, mc1_o_data_rt;
     wire [`AWIDTH - 1 : 0] mc1_o_addr_rd, mc1_o_addr_rs, mc1_o_addr_rt;
-    // chooser: select queue when ES1 has signaled fetch and cd1 indicates write-enable
-    wire choose_mux_1 = (es1_o_qc1) && qc1_i_cd1;
+    // chooser: select queue when ES1 has signaled fetch; force selection if the entry must run on pipe 1
+    wire choose_mux_1 = (es1_o_qc1) && (qc1_o_force_pipe1_r || qc1_i_cd1);
     mux_comps mc1 (
         .choose_comp(choose_mux_1), 
         .m1_i_ce(qc1_o_ce_r), 
@@ -681,6 +656,80 @@ module datapath (
         .mc_o_reg_write(mc1_o_reg_write)
     );
 
+    mux_comps mc3 (
+        .choose_comp(cc_qc2_o_we), 
+        .m1_i_ce(cc_qc2_o_ce), 
+        .m1_i_pc(cc_qc2_o_pc), 
+        .m1_i_jr(cc_qc2_o_jr), 
+        .m1_i_jal(cc_qc2_o_jal), 
+        .m1_i_imm(cc_qc2_o_imm), 
+        .m1_i_funct(cc_qc2_o_funct), 
+        .m1_i_opcode(cc_qc2_o_opcode), 
+        .m1_i_reg_dst(cc_qc2_o_reg_dst), 
+        .m1_i_alu_src(cc_qc2_o_alu_src), 
+        .m1_i_data_rs(cc_qc2_o_data_rs), 
+        .m1_i_data_rt(cc_qc2_o_data_rt), 
+        .m1_i_addr_rd(cc_qc2_o_addr_rd),
+.m1_i_addr_rs(cc_qc2_o_addr_rs), 
+        .m1_i_addr_rt(cc_qc2_o_addr_rt), 
+        .m1_i_memwrite(cc_qc2_o_memwrite), 
+        .m1_i_memtoreg(cc_qc2_o_memtoreg),
+        .m1_i_jal_addr(cc_qc2_o_jal_addr), 
+        .m1_i_reg_write(cc_qc2_o_reg_write), 
+        .m2_i_jr(ds1_es1_o_jr), 
+        .m2_i_ce(ds1_es1_o_ce), 
+        .m2_i_jal(ds1_es1_o_jal), 
+        .m2_i_reg_dst(ds1_es1_o_reg_dst), 
+        .m2_i_alu_src(ds1_es1_o_alu_src), 
+        .m2_i_memtoreg(ds1_es1_o_memtoreg),
+        .m2_i_reg_write(ds1_es1_o_reg_write), 
+        .m2_i_memwrite(ds1_es1_o_memwrite), 
+        .m2_i_imm(ds1_es1_o_imm), 
+        .m2_i_pc(ds1_es1_o_pc), 
+        .m2_i_funct(ds1_es1_o_funct), 
+        .m2_i_jal_addr(ds1_es1_o_jal_addr), 
+        .m2_i_opcode(ds1_es1_o_opcode), 
+        .m2_i_data_rs(ds1_es1_o_data_rs), 
+        .m2_i_data_rt(ds1_es1_o_data_rt), 
+        .m2_i_addr_rd(ds1_es1_o_addr_rd), 
+        .m2_i_addr_rs(ds1_es1_o_addr_rs),
+        .m2_i_addr_rt(ds1_es1_o_addr_rt),
+        .mc_o_ce(mc_o_ce), 
+        .mc_o_pc(mc_o_pc), 
+        .mc_o_jr(mc_o_jr), 
+        .mc_o_jal(mc_o_jal), 
+        .mc_o_imm(mc_o_imm), 
+        .mc_o_funct(mc_o_funct), 
+        .mc_o_opcode(mc_o_opcode), 
+        .mc_o_alu_src(mc_o_alu_src), 
+        .mc_o_reg_dst(mc_o_reg_dst), 
+        .mc_o_data_rs(mc_o_data_rs), 
+        .mc_o_data_rt(mc_o_data_rt), 
+        .mc_o_addr_rd(mc_o_addr_rd), 
+        .mc_o_addr_rs(mc_o_addr_rs), 
+        .mc_o_addr_rt(mc_o_addr_rt),
+        .mc_o_memwrite(mc_o_memwrite), 
+        .mc_o_memtoreg(mc_o_memtoreg), 
+        .mc_o_jal_addr(mc_o_jal_addr), 
+        .mc_o_reg_write(mc_o_reg_write) 
+    );
+
+    wire mc_o_ce;
+    wire mc_o_jr;
+    wire mc_o_jal;
+    wire mc_o_reg_dst;
+    wire mc_o_alu_src;
+    wire mc_o_memtoreg;
+    wire mc_o_memwrite;
+    wire mc_o_reg_write;
+    wire [`PC_WIDTH - 1 : 0] mc_o_pc;
+    wire [`IMM_WIDTH - 1 : 0] mc_o_imm;
+    wire [`FUNCT_WIDTH - 1 : 0] mc_o_funct;
+    wire [`JUMP_WIDTH - 1 : 0] mc_o_jal_addr;
+    wire [`OPCODE_WIDTH - 1 : 0] mc_o_opcode;
+    wire [`DWIDTH - 1 : 0] mc_o_data_rs, mc_o_data_rt;
+    wire [`AWIDTH - 1 : 0] mc_o_addr_rd, mc_o_addr_rs, mc_o_addr_rt;
+
     wire qc2_o_ce;
     wire qc2_o_reg_dst;
     wire qc2_o_alu_src;
@@ -694,6 +743,7 @@ module datapath (
     wire [`OPCODE_WIDTH - 1 : 0] qc2_o_opcode;
     wire [`DWIDTH - 1 : 0] qc2_o_data_rs, qc2_o_data_rt;
     wire [`AWIDTH - 1 : 0] qc2_o_addr_rd, qc2_o_addr_rs, qc2_o_addr_rt;
+    wire qc2_o_force_pipe1;
     queue_comps qc2 (
         .qc_clk(d_clk), 
         .qc_rst(d_rst), 
@@ -704,8 +754,9 @@ module datapath (
         .qc_i_jal(ds1_es1_o_jal), 
         .qc_i_imm(ds1_es1_o_imm), 
         .qc_i_re(es2_o_qc2), 
-        .qc_i_funct(ds1_es1_o_funct), 
-        .qc_i_opcode(ds1_es1_o_opcode), 
+        .qc_i_force_pipe1(cd2_q2_force_pipe1),
+        .qc_i_funct(ds1_es1_o_funct),
+.qc_i_opcode(ds1_es1_o_opcode), 
         .qc_i_reg_dst(ds1_es1_o_reg_dst), 
         .qc_i_alu_src(ds1_es1_o_alu_src), 
         .qc_i_data_rs(ds1_es1_o_data_rs), 
@@ -734,24 +785,26 @@ module datapath (
         .qc_o_memtoreg(qc2_o_memtoreg), 
         .qc_o_memwrite(qc2_o_memwrite), 
         .qc_o_jal_addr(qc2_o_jal_addr), 
-        .qc_o_regwrite(qc2_o_regwrite)
+        .qc_o_regwrite(qc2_o_regwrite),
+        .qc_o_force_pipe1(qc2_o_force_pipe1)
     );
 
     // Register queue outputs for qc2 to stabilize inputs to mux2
     reg qc2_o_ce_r;
     reg qc2_o_jr_r;
     reg qc2_o_jal_r;
+    reg qc2_o_reg_dst_r;
+    reg qc2_o_alu_src_r;
+    reg qc2_o_regwrite_r;
+    reg qc2_o_memtoreg_r;
+    reg qc2_o_memwrite_r;
     reg [`PC_WIDTH - 1 : 0] qc2_o_pc_r;
-    reg qc2_o_memtoreg_r, qc2_o_memwrite_r;
     reg [`IMM_WIDTH - 1 : 0] qc2_o_imm_r;
     reg [`FUNCT_WIDTH - 1 : 0] qc2_o_funct_r;
     reg [`JUMP_WIDTH - 1 : 0] qc2_o_jal_addr_r;
     reg [`OPCODE_WIDTH - 1 : 0] qc2_o_opcode_r;
     reg [`DWIDTH - 1 : 0] qc2_o_data_rs_r, qc2_o_data_rt_r;
     reg [`AWIDTH - 1 : 0] qc2_o_addr_rd_r, qc2_o_addr_rs_r, qc2_o_addr_rt_r;
-    reg qc2_o_reg_dst_r;
-    reg qc2_o_alu_src_r;
-    reg qc2_o_regwrite_r;
     
     // capture queue outputs for qc2 on posedge so combinational mux downstream sees stable values
     always @(posedge d_clk, negedge d_rst) begin
@@ -759,32 +812,29 @@ module datapath (
             qc2_o_ce_r <= 1'b0;
             qc2_o_jr_r <= 1'b0;
             qc2_o_jal_r <= 1'b0;
-            qc2_o_pc_r <= {`PC_WIDTH{1'b0}};
+            qc2_o_alu_src_r <= 1'b0;
+            qc2_o_reg_dst_r <= 1'b0;
             qc2_o_memtoreg_r <= 1'b0;
             qc2_o_memwrite_r <= 1'b0;
+            qc2_o_regwrite_r <= 1'b0;
+            qc2_o_pc_r <= {`PC_WIDTH{1'b0}};
             qc2_o_imm_r <= {`IMM_WIDTH{1'b0}};
-            qc2_o_funct_r <= {`FUNCT_WIDTH{1'b0}};
-            qc2_o_jal_addr_r <= {`JUMP_WIDTH{1'b0}};
-            qc2_o_opcode_r <= {`OPCODE_WIDTH{1'b0}};
             qc2_o_data_rs_r <= {`DWIDTH{1'b0}};
             qc2_o_data_rt_r <= {`DWIDTH{1'b0}};
             qc2_o_addr_rd_r <= {`AWIDTH{1'b0}};
             qc2_o_addr_rs_r <= {`AWIDTH{1'b0}};
             qc2_o_addr_rt_r <= {`AWIDTH{1'b0}};
-            qc2_o_reg_dst_r <= 1'b0;
-            qc2_o_alu_src_r <= 1'b0;
-            qc2_o_regwrite_r <= 1'b0;
+            qc2_o_funct_r <= {`FUNCT_WIDTH{1'b0}};
+            qc2_o_jal_addr_r <= {`JUMP_WIDTH{1'b0}};
+            qc2_o_opcode_r <= {`OPCODE_WIDTH{1'b0}};
         end
         else begin
             qc2_o_ce_r <= qc2_o_ce;
             qc2_o_jr_r <= qc2_o_jr;
-            qc2_o_jal_r <= qc2_o_jal;
             qc2_o_pc_r <= qc2_o_pc;
-            qc2_o_memtoreg_r <= qc2_o_memtoreg;
-            qc2_o_memwrite_r <= qc2_o_memwrite;
+            qc2_o_jal_r <= qc2_o_jal;
             qc2_o_imm_r <= qc2_o_imm;
-            qc2_o_funct_r <= qc2_o_funct;
-            qc2_o_jal_addr_r <= qc2_o_jal_addr;
+qc2_o_funct_r <= qc2_o_funct;
             qc2_o_opcode_r <= qc2_o_opcode;
             qc2_o_data_rs_r <= qc2_o_data_rs;
             qc2_o_data_rt_r <= qc2_o_data_rt;
@@ -793,10 +843,71 @@ module datapath (
             qc2_o_addr_rt_r <= qc2_o_addr_rt;
             qc2_o_reg_dst_r <= qc2_o_reg_dst;
             qc2_o_alu_src_r <= qc2_o_alu_src;
+            qc2_o_jal_addr_r <= qc2_o_jal_addr;
+            qc2_o_memtoreg_r <= qc2_o_memtoreg;
+            qc2_o_memwrite_r <= qc2_o_memwrite;
             qc2_o_regwrite_r <= qc2_o_regwrite;
         end
     end
-
+    // TODO:
+    wire ci_o_ce;
+    wire ci_o_reg_dst;
+    wire ci_o_alu_src;
+    wire ci_o_memwrite;
+    wire ci_o_memtoreg;
+    wire ci_o_regwrite;
+    wire ci_o_jr, ci_o_jal;
+    wire [`PC_WIDTH - 1 : 0] ci_o_pc;
+    wire [`IMM_WIDTH - 1 : 0] ci_o_imm;
+    wire [`FUNCT_WIDTH - 1 : 0] ci_o_funct;
+    wire [`OPCODE_WIDTH - 1 : 0] ci_o_opcode;
+    wire [`JUMP_WIDTH - 1 : 0] ci_o_jal_addr;
+    wire [`DWIDTH - 1 : 0] ci_o_data_rs, ci_o_data_rt;
+    wire [`AWIDTH - 1 : 0] ci_o_addr_rd, ci_o_addr_rs, ci_o_addr_rt;
+    check_instr ci (
+        .ci_clk(d_clk), 
+        .ci_rst(d_rst), 
+        .ci_i_ce_2(qc2_o_ce_r), 
+        .ci_i_jr_2(qc2_o_jr_r), 
+        .ci_i_pc_2(qc2_o_pc_r), 
+        .ci_i_jal_2(qc2_o_jal_r), 
+        .ci_i_imm_2(qc2_o_imm_r), 
+        .ci_i_funct_2(qc2_o_funct_r), 
+        .ci_i_opcode_2(qc2_o_opcode_r),
+        .ci_i_reg_dst_2(qc2_o_reg_dst_r), 
+        .ci_i_alu_src_2(qc2_o_alu_src_r), 
+        .ci_i_data_rs_2(qc2_o_data_rs_r), 
+        .ci_i_data_rt_2(qc2_o_data_rt_r), 
+        .ci_i_addr_rd_2(qc2_o_addr_rd_r), 
+        .ci_i_addr_rs_2(qc2_o_addr_rs_r), 
+        .ci_i_addr_rt_2(qc2_o_addr_rt_r),
+        .ci_i_jal_addr_2(qc2_o_jal_addr_r), 
+        .ci_i_memwrite_2(qc2_o_memwrite_r), 
+        .ci_i_memtoreg_2(qc2_o_memtoreg_r), 
+        .ci_i_regwrite_2(qc2_o_regwrite_r), 
+        .ci_i_addr_rd_1(mc1_o_addr_rd), 
+        .ci_i_addr_rs_1(mc1_o_addr_rs), 
+        .ci_i_addr_rt_1(mc1_o_addr_rt), 
+        .ci_o_ce(ci_o_ce), 
+        .ci_o_jr(ci_o_jr), 
+        .ci_o_jal(ci_o_jal), 
+        .ci_o_pc(ci_o_pc), 
+        .ci_o_imm(ci_o_imm), 
+        .ci_o_funct(ci_o_funct), 
+        .ci_o_opcode(ci_o_opcode), 
+        .ci_o_alu_src(ci_o_alu_src), 
+        .ci_o_data_rs(ci_o_data_rs), 
+        .ci_o_data_rt(ci_o_data_rt), 
+        .ci_o_addr_rd(ci_o_addr_rd), 
+        .ci_o_addr_rs(ci_o_addr_rs), 
+        .ci_o_addr_rt(ci_o_addr_rt), 
+        .ci_o_reg_dst(ci_o_reg_dst), 
+        .ci_o_jal_addr(ci_o_jal_addr), 
+        .ci_o_memwrite(ci_o_memwrite), 
+        .ci_o_memtoreg(ci_o_memtoreg), 
+        .ci_o_regwrite(ci_o_regwrite) 
+    );
+    
     wire mc2_o_ce;
     wire mc2_o_reg_dst;
     wire mc2_o_alu_src;
@@ -806,50 +917,51 @@ module datapath (
     wire mc2_o_memtoreg, mc2_o_memwrite;
     wire [`IMM_WIDTH - 1 : 0] mc2_o_imm;
     wire [`FUNCT_WIDTH - 1 : 0] mc2_o_funct;
-    wire [`JUMP_WIDTH - 1 : 0] mc2_o_jal_addr;
+wire [`JUMP_WIDTH - 1 : 0] mc2_o_jal_addr;
     wire [`OPCODE_WIDTH - 1 : 0] mc2_o_opcode;
     wire [`DWIDTH - 1 : 0] mc2_o_data_rs, mc2_o_data_rt;
     wire [`AWIDTH - 1 : 0] mc2_o_addr_rd, mc2_o_addr_rs, mc2_o_addr_rt;
     // chooser for mc2
     wire choose_mux_2 = (es2_o_qc2) && qc2_i_cd2;
+    wire block_ds2_direct_issue = cd1_o_force_pipe1;
     mux_comps mc2 (
         .choose_comp(choose_mux_2), 
-        .m1_i_ce(qc2_o_ce_r), 
-        .m1_i_jr(qc2_o_jr_r), 
-        .m1_i_pc(qc2_o_pc_r),
-        .m1_i_jal(qc2_o_jal_r), 
-        .m1_i_imm(qc2_o_imm_r), 
-        .m1_i_funct(qc2_o_funct_r), 
-        .m1_i_opcode(qc2_o_opcode_r), 
-        .m1_i_reg_dst(qc2_o_reg_dst_r), 
-        .m1_i_alu_src(qc2_o_alu_src_r), 
-        .m1_i_data_rs(qc2_o_data_rs_r), 
-        .m1_i_data_rt(qc2_o_data_rt_r), 
-        .m1_i_addr_rd(qc2_o_addr_rd_r), 
-        .m1_i_addr_rs(qc2_o_addr_rs_r), 
-        .m1_i_addr_rt(qc2_o_addr_rt_r), 
-        .m1_i_jal_addr(qc2_o_jal_addr_r), 
-        .m1_i_memwrite(qc2_o_memwrite_r), 
-        .m1_i_memtoreg(qc2_o_memtoreg_r),
-        .m1_i_reg_write(qc2_o_regwrite_r), 
-        .m2_i_ce(ds2_es2_o_ce), 
-        .m2_i_pc(ds2_es2_o_pc),
-        .m2_i_jr(ds2_es2_o_jr), 
-        .m2_i_jal(ds2_es2_o_jal), 
-        .m2_i_imm(ds2_es2_o_imm), 
-        .m2_i_funct(ds2_es2_o_funct), 
-        .m2_i_opcode(ds2_es2_o_opcode), 
-        .m2_i_reg_dst(ds2_es2_o_reg_dst), 
-        .m2_i_alu_src(ds2_es2_o_alu_src), 
-        .m2_i_data_rs(ds2_es2_o_data_rs), 
-        .m2_i_data_rt(ds2_es2_o_data_rt), 
-        .m2_i_addr_rd(ds2_es2_o_addr_rd), 
-        .m2_i_addr_rs(ds2_es2_o_addr_rs),
-        .m2_i_addr_rt(ds2_es2_o_addr_rt), 
-        .m2_i_jal_addr(ds2_es2_o_jal_addr), 
-        .m2_i_memwrite(ds2_es2_o_memwrite), 
-        .m2_i_memtoreg(ds2_es2_o_memtoreg),
-        .m2_i_reg_write(ds2_es2_o_reg_write), 
+        .m1_i_ce(ci_o_ce), 
+        .m1_i_jr(ci_o_jr), 
+        .m1_i_pc(ci_o_pc),
+        .m1_i_jal(ci_o_jal), 
+        .m1_i_imm(ci_o_imm), 
+        .m1_i_funct(ci_o_funct), 
+        .m1_i_opcode(ci_o_opcode), 
+        .m1_i_reg_dst(ci_o_reg_dst), 
+        .m1_i_alu_src(ci_o_alu_src), 
+        .m1_i_data_rs(ci_o_data_rs), 
+        .m1_i_data_rt(ci_o_data_rt), 
+        .m1_i_addr_rd(ci_o_addr_rd), 
+        .m1_i_addr_rs(ci_o_addr_rs), 
+        .m1_i_addr_rt(ci_o_addr_rt), 
+        .m1_i_jal_addr(ci_o_jal_addr), 
+        .m1_i_memwrite(ci_o_memwrite), 
+        .m1_i_memtoreg(ci_o_memtoreg),
+        .m1_i_reg_write(ci_o_regwrite), 
+        .m2_i_ce(block_ds2_direct_issue ? 1'b0 : ds2_es2_o_ce), 
+        .m2_i_pc(block_ds2_direct_issue ? {`PC_WIDTH{1'b0}} : ds2_es2_o_pc),
+        .m2_i_jr(block_ds2_direct_issue ? 1'b0 : ds2_es2_o_jr), 
+        .m2_i_jal(block_ds2_direct_issue ? 1'b0 : ds2_es2_o_jal), 
+        .m2_i_imm(block_ds2_direct_issue ? {`IMM_WIDTH{1'b0}} : ds2_es2_o_imm), 
+        .m2_i_funct(block_ds2_direct_issue ? {`FUNCT_WIDTH{1'b0}} : ds2_es2_o_funct), 
+        .m2_i_opcode(block_ds2_direct_issue ? {`OPCODE_WIDTH{1'b0}} : ds2_es2_o_opcode), 
+        .m2_i_reg_dst(block_ds2_direct_issue ? 1'b0 : ds2_es2_o_reg_dst), 
+        .m2_i_alu_src(block_ds2_direct_issue ? 1'b0 : ds2_es2_o_alu_src), 
+        .m2_i_data_rs(block_ds2_direct_issue ? {`DWIDTH{1'b0}} : ds2_es2_o_data_rs), 
+        .m2_i_data_rt(block_ds2_direct_issue ? {`DWIDTH{1'b0}} : ds2_es2_o_data_rt), 
+        .m2_i_addr_rd(block_ds2_direct_issue ? {`AWIDTH{1'b0}} : ds2_es2_o_addr_rd), 
+        .m2_i_addr_rs(block_ds2_direct_issue ? {`AWIDTH{1'b0}} : ds2_es2_o_addr_rs),
+        .m2_i_addr_rt(block_ds2_direct_issue ? {`AWIDTH{1'b0}} : ds2_es2_o_addr_rt), 
+        .m2_i_jal_addr(block_ds2_direct_issue ? {`JUMP_WIDTH{1'b0}} : ds2_es2_o_jal_addr), 
+        .m2_i_memwrite(block_ds2_direct_issue ? 1'b0 : ds2_es2_o_memwrite), 
+        .m2_i_memtoreg(block_ds2_direct_issue ? 1'b0 : ds2_es2_o_memtoreg),
+        .m2_i_reg_write(block_ds2_direct_issue ? 1'b0 : ds2_es2_o_reg_write), 
         .mc_o_ce(mc2_o_ce), 
         .mc_o_jr(mc2_o_jr), 
         .mc_o_pc(mc2_o_pc),
@@ -870,6 +982,146 @@ module datapath (
         .mc_o_reg_write(mc2_o_reg_write)
     );
 
+    wire cc_o_we;
+    wire cc_o_ce;
+    wire cc_o_jr;
+    wire cc_o_jal;
+    wire cc_o_ce_1;
+    wire cc_o_reg_dst;
+    wire cc_o_alu_src;
+    wire cc_o_memwrite;
+    wire cc_o_memtoreg;
+    wire cc_o_reg_write;
+    wire [`PC_WIDTH - 1 : 0] cc_o_pc;
+    wire [`IMM_WIDTH - 1 : 0] cc_o_imm;
+    wire [`FUNCT_WIDTH - 1 : 0] cc_o_funct;
+    wire [`OPCODE_WIDTH - 1 : 0] cc_o_opcode;
+    wire [`JUMP_WIDTH - 1 : 0] cc_o_jal_addr;
+    wire [`DWIDTH - 1 : 0] cc_o_data_rs, cc_o_data_rt;
+    wire [`AWIDTH - 1 : 0] cc_o_addr_rd, cc_o_addr_rs, cc_o_addr_rt;
+    choose_comps cc (
+        .cc_i_ce_1(mc1_o_ce),
+.cc_i_jr_1(mc1_o_jr), 
+        .cc_i_pc_1(mc1_o_pc), 
+        .cc_i_jal_1(mc1_o_jal), 
+        .cc_i_imm_1(mc1_o_imm), 
+        .cc_i_funct_1(mc1_o_funct), 
+        .cc_i_opcode_1(mc1_o_opcode), 
+        .cc_i_reg_dst_1(mc1_o_reg_dst),
+        .cc_i_alu_src_1(mc1_o_alu_src), 
+        .cc_i_data_rs_1(mc1_o_data_rs), 
+        .cc_i_data_rt_1(mc1_o_data_rt), 
+        .cc_i_addr_rd_1(mc1_o_addr_rd), 
+        .cc_i_addr_rs_1(mc1_o_addr_rs), 
+        .cc_i_addr_rt_1(mc1_o_addr_rt), 
+        .cc_i_jal_addr_1(mc1_o_jal_addr), 
+        .cc_i_memwrite_1(mc1_o_memwrite), 
+        .cc_i_memtoreg_1(mc1_o_memtoreg), 
+        .cc_i_reg_write_1(mc1_o_reg_write),
+        .cc_i_ce_2(mc2_o_ce), 
+        .cc_i_jr_2(mc2_o_jr), 
+        .cc_i_pc_2(mc2_o_pc),
+        .cc_i_jal_2(mc2_o_jal), 
+        .cc_i_imm_2(mc2_o_imm), 
+        .cc_i_funct_2(mc2_o_funct), 
+        .cc_i_opcode_2(mc2_o_opcode), 
+        .cc_i_reg_dst_2(mc2_o_reg_dst),
+        .cc_i_alu_src_2(mc2_o_alu_src), 
+        .cc_i_data_rs_2(mc2_o_data_rs), 
+        .cc_i_data_rt_2(mc2_o_data_rt), 
+        .cc_i_addr_rd_2(mc2_o_addr_rd), 
+        .cc_i_addr_rs_2(mc2_o_addr_rs), 
+        .cc_i_addr_rt_2(mc2_o_addr_rt), 
+        .cc_i_jal_addr_2(mc2_o_jal_addr), 
+        .cc_i_memwrite_2(mc2_o_memwrite), 
+        .cc_i_memtoreg_2(mc2_o_memtoreg), 
+        .cc_i_reg_write_2(mc2_o_reg_write), 
+        .cc_o_we(cc_o_we), 
+        .cc_o_ce(cc_o_ce), 
+        .cc_o_jr(cc_o_jr), 
+        .cc_o_pc(cc_o_pc), 
+        .cc_o_jal(cc_o_jal), 
+        .cc_o_imm(cc_o_imm), 
+        .cc_o_ce_1(cc_o_ce_1),
+        .cc_o_funct(cc_o_funct), 
+        .cc_o_opcode(cc_o_opcode), 
+        .cc_o_reg_dst(cc_o_reg_dst), 
+        .cc_o_alu_src(cc_o_alu_src), 
+        .cc_o_data_rs(cc_o_data_rs), 
+        .cc_o_data_rt(cc_o_data_rt), 
+        .cc_o_addr_rd(cc_o_addr_rd), 
+        .cc_o_addr_rs(cc_o_addr_rs), 
+        .cc_o_addr_rt(cc_o_addr_rt), 
+        .cc_o_jal_addr(cc_o_jal_addr), 
+        .cc_o_memwrite(cc_o_memwrite), 
+        .cc_o_memtoreg(cc_o_memtoreg), 
+        .cc_o_reg_write(cc_o_reg_write)
+    );  
+
+    reg cc_qc2_o_we;
+    reg cc_qc2_o_ce;
+    reg cc_qc2_o_jr;
+    reg cc_qc2_o_jal;
+    reg cc_qc2_o_ce_1;
+    reg cc_qc2_o_reg_dst;
+    reg cc_qc2_o_alu_src;
+    reg cc_qc2_o_memwrite;
+    reg cc_qc2_o_memtoreg;
+    reg cc_qc2_o_reg_write;
+    reg [`PC_WIDTH - 1 : 0] cc_qc2_o_pc;
+    reg [`IMM_WIDTH - 1 : 0] cc_qc2_o_imm;
+    reg [`FUNCT_WIDTH - 1 : 0] cc_qc2_o_funct;
+    reg [`OPCODE_WIDTH - 1 : 0] cc_qc2_o_opcode;
+    reg [`JUMP_WIDTH - 1 : 0] cc_qc2_o_jal_addr;
+    reg [`DWIDTH - 1 : 0] cc_qc2_o_data_rs, cc_qc2_o_data_rt;
+    reg [`AWIDTH - 1 : 0] cc_qc2_o_addr_rd, cc_qc2_o_addr_rs, cc_qc2_o_addr_rt;
+    always @(posedge d_clk, negedge d_rst) begin
+        if (!d_rst) begin
+            cc_qc2_o_we <= 1'b0;
+            cc_qc2_o_ce <= 1'b0;
+            cc_qc2_o_jr <= 1'b0;
+            cc_qc2_o_jal <= 1'b0;
+            cc_qc2_o_ce_1 <= 1'b0;
+            cc_qc2_o_reg_dst <= 1'b0;
+            cc_qc2_o_alu_src <= 1'b0;
+cc_qc2_o_memwrite <= 1'b0;
+            cc_qc2_o_memtoreg <= 1'b0;
+            cc_qc2_o_reg_write <= 1'b0;
+            cc_qc2_o_pc <= {`PC_WIDTH{1'b0}};
+            cc_qc2_o_imm <= {`IMM_WIDTH{1'b0}};
+            cc_qc2_o_data_rs <= {`DWIDTH{1'b0}};
+            cc_qc2_o_data_rt <= {`DWIDTH{1'b0}};
+            cc_qc2_o_addr_rd <= {`AWIDTH{1'b0}};
+            cc_qc2_o_addr_rs <= {`AWIDTH{1'b0}}; 
+            cc_qc2_o_addr_rt <= {`AWIDTH{1'b0}};
+            cc_qc2_o_funct <= {`FUNCT_WIDTH{1'b0}};
+            cc_qc2_o_opcode <= {`OPCODE_WIDTH{1'b0}};
+            cc_qc2_o_jal_addr <= {`JUMP_WIDTH{1'b0}};
+        end
+        else begin
+            cc_qc2_o_we <= cc_o_we;
+            cc_qc2_o_ce <= cc_o_ce;
+            cc_qc2_o_pc <= cc_o_pc;
+            cc_qc2_o_jr <= cc_o_jr;
+            cc_qc2_o_jal <= cc_o_jal;
+            cc_qc2_o_imm <= cc_o_imm;
+            cc_qc2_o_ce_1 <= cc_o_ce_1;
+            cc_qc2_o_funct <= cc_o_funct;
+            cc_qc2_o_opcode <= cc_o_opcode;
+            cc_qc2_o_data_rs <= cc_o_data_rs;
+            cc_qc2_o_data_rt <= cc_o_data_rt;
+            cc_qc2_o_addr_rd <= cc_o_addr_rd;
+            cc_qc2_o_addr_rs <= cc_o_addr_rs; 
+            cc_qc2_o_addr_rt <= cc_o_addr_rt;
+            cc_qc2_o_reg_dst <= cc_o_reg_dst;
+            cc_qc2_o_alu_src <= cc_o_alu_src;
+            cc_qc2_o_jal_addr <= cc_o_jal_addr;
+            cc_qc2_o_memwrite <= cc_o_memwrite;
+            cc_qc2_o_memtoreg <= cc_o_memtoreg;
+            cc_qc2_o_reg_write <= cc_o_reg_write;
+        end
+    end
+
     wire [`AWIDTH - 1 : 0] es1_i_addr_rd;
     mux2_1 m1 (
         .mx_i_addr_rd(mc1_o_addr_rd), 
@@ -886,42 +1138,58 @@ module datapath (
         .mx_o_addr_rd(es2_i_addr_rd)
     );
 
+    reg [`AWIDTH - 1 : 0] es2_o_addr_rd;
+    always @(posedge d_clk, negedge d_rst) begin
+        if (!d_rst) begin
+            es2_o_addr_rd <= {`AWIDTH{1'b0}};
+        end
+        else begin
+            es2_o_addr_rd <= es2_i_addr_rd;
+        end
+    end
+    // TODO: How to know when The system uses alu_value 1 or alu_value 2
+    // Add some conditions to check when system uses es1 or es2, Maybe when es1 is trigged
+    // TODO: Check lệnh ở luồng 1 đưa ra xem có trùng với lệnh ở luồng 2 tính toán không nếu có thì lệnh 1 sẽ 
+    // được đưa về queue 2, thêm một tín hiệu ghi bảo ghi vào 2, tín hiệu này 
+    // sẽ điều khiển việc tắt es1
+
     wire [`DWIDTH - 1 : 0] mx31_1_o_data_rs;
     mux3_1 mux31_1(
-        .write_back_data(wb_ds1_o_data_rd), 
         .data(mc1_o_data_rs), 
         .alu_value(es1_ms_o_alu_value), 
+        .write_back_data(wb_ds1_o_data_rd), 
         .forwarding(fw1_o_data_rs), 
         .data_out(mx31_1_o_data_rs)
     );
 
     wire [`DWIDTH - 1 : 0] mx31_1_o_data_rt;
     mux3_1 mux31_2(
+        .data(mc1_o_data_rt),
+.alu_value(es1_ms_o_alu_value), 
         .write_back_data(wb_ds1_o_data_rd), 
-        .data(mc1_o_data_rt), 
-        .alu_value(es1_ms_o_alu_value), 
         .forwarding(fw1_o_data_rt), 
         .data_out(mx31_1_o_data_rt)
     );
 
     wire [`DWIDTH - 1 : 0] mx31_2_o_data_rs;
     mux3_1 mux31_3(
-        .write_back_data(wb_ds1_o_data_rd), 
         .data(mc2_o_data_rs), 
-        .alu_value(es1_ms_o_alu_value), 
+        .alu_value(es2_ms_o_alu_value), 
+        .write_back_data(wb_ds2_o_data_rd), 
         .forwarding(fw2_o_data_rs), 
         .data_out(mx31_2_o_data_rs)
     );
 
     wire [`DWIDTH - 1 : 0] mx31_2_o_data_rt;
     mux3_1 mux31_4(
-        .write_back_data(wb_ds1_o_data_rd), 
         .data(mc2_o_data_rt), 
         .alu_value(es1_ms_o_alu_value), 
+        .write_back_data(wb_ds2_o_data_rd), 
         .forwarding(fw2_o_data_rt), 
         .data_out(mx31_2_o_data_rt)
     );
 
+    // TODO: This mux will be deleted 
     wire es1_i_ce, es2_i_ce;
     mux mx (
         .ds1_es1_o_ce(mc1_o_ce), 
@@ -939,9 +1207,9 @@ module datapath (
     reg es1_queue2_o_fetch;
     reg es1_ctrl1_o_change_pc;
     reg [`AWIDTH - 1 : 0] es1_ms_o_addr_rd;
-    reg [`OPCODE_WIDTH - 1 : 0] es1_ms_o_opcode;
     reg [`DWIDTH - 1 : 0] es1_ms_o_alu_value;
     reg [`PC_WIDTH - 1 : 0] es1_ctrl1_o_alu_pc;
+    reg [`OPCODE_WIDTH - 1 : 0] es1_ms_o_opcode;
     wire es1_o_ce;
     wire es1_o_change_pc;
     wire [`PC_WIDTH - 1 : 0] es1_o_alu_pc;
@@ -991,8 +1259,8 @@ module datapath (
         .es_i_jal(mc2_o_jal), 
         .es_i_fetch_queue(cd2_o_we), 
         .es_i_jal_addr(mc2_o_jal_addr), 
-        .es_i_pc(mc2_o_pc), 
-        .es_i_alu_src(mc2_o_alu_src), 
+        .es_i_pc(mc2_o_pc),
+.es_i_alu_src(mc2_o_alu_src), 
         .es_i_imm(mc2_o_imm), 
         .es_i_alu_op(mc2_o_opcode), 
         .es_i_alu_funct(mc2_o_funct),
@@ -1072,12 +1340,12 @@ module datapath (
             es2_ms_o_alu_value <= {`DWIDTH{1'b0}};
             ts2_ms_o_store_data <= {`DWIDTH{1'b0}};
             es2_ctrl2_o_alu_pc <= {`PC_WIDTH{1'b0}};
-            es2_ms_o_opcode <= {`OPCODE_WIDTH{1'b0}};
+es2_ms_o_opcode <= {`OPCODE_WIDTH{1'b0}};
         end
         else begin
             es2_ms_o_ce <= es2_o_ce;
             es2_ms_o_opcode <= es2_o_opcode;
-            es2_ms_o_addr_rd <= es2_i_addr_rd;
+            es2_ms_o_addr_rd <= es2_o_addr_rd;
             es2_ctrl2_o_alu_pc <= es2_o_alu_pc;
             es2_ms_o_alu_value <= es2_o_alu_value;
             es2_ms_o_memwrite <= mc2_o_memwrite;
@@ -1149,7 +1417,7 @@ module datapath (
             ms_wb2_o_regwrite <= es2_ms_o_regwrite;
             ms_wb1_o_load_data_1 <= tl1_o_load_data;
             ms_wb2_o_load_data_2 <= tl2_o_load_data;
-            ms_wb1_o_alu_value <= es1_ms_o_alu_value;
+ms_wb1_o_alu_value <= es1_ms_o_alu_value;
             ms_wb2_o_alu_value <= es2_ms_o_alu_value;
         end 
     end
@@ -1173,8 +1441,8 @@ module datapath (
     wire [1 : 0] fw2_o_data_rs, fw2_o_data_rt;
     forwarding fw2 (
         .ds_es_i_opcode(mc2_o_opcode), 
-        .ms_wb_i_addr_rd(ms_wb1_o_addr_rd),
-        .es_ms_i_addr_rd(es1_ms_o_addr_rd),
+        .ms_wb_i_addr_rd(ms_wb2_o_addr_rd),
+        .es_ms_i_addr_rd(es2_ms_o_addr_rd),
         .ds_es_i_addr_rs1(mc2_o_addr_rs),
         .ds_es_i_addr_rs2(mc2_o_addr_rt),
         .es_ms_i_regwrite(es2_ms_o_regwrite),
@@ -1187,4 +1455,4 @@ module datapath (
     assign wb_ds1_o_data_rd = (ms_wb1_o_memtoreg) ? ms_wb1_o_load_data_1 : ms_wb1_o_alu_value;
     assign wb_ds2_o_data_rd = (ms_wb2_o_memtoreg) ? ms_wb2_o_load_data_2 : ms_wb2_o_alu_value;
 endmodule
-`endif 
+`endif
