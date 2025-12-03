@@ -1342,6 +1342,7 @@ module datapath(
     wire [`PC_WIDTH - 1 : 0] es1_o_alu_pc;
     wire [`DWIDTH - 1 : 0] es1_o_alu_value;
     wire [`OPCODE_WIDTH - 1 : 0] es1_o_opcode;
+    wire [`AWIDTH - 1 : 0] es1_o_addr_rd;
     wire queue_o_request_instr;
     execute_stage es1 (
         .es_i_ce(ds1_es1_o_ce), 
@@ -1353,6 +1354,7 @@ module datapath(
         .es_i_alu_op(ds1_es1_o_opcode), 
         .es_i_alu_src(ds1_es1_o_alu_src), 
         .es_i_alu_funct(ds1_es1_o_funct),
+        .es_i_addr_rd(mx1_o_addr_rd),
         .es_i_data_rs(mx_es1_o_data_rs), 
         .es_i_data_rt(mx_es1_o_data_rt), 
         .es_i_jal_addr(ds1_es1_o_jal_addr), 
@@ -1361,7 +1363,8 @@ module datapath(
         .es_o_alu_pc(es1_o_alu_pc),
         .es_o_alu_value(es1_o_alu_value), 
         .es_o_change_pc(es1_o_change_pc),
-        .es_o_fetch_queue(queue_o_request_instr)
+        .es_o_fetch_queue(queue_o_request_instr),
+        .es_o_addr_rd(es1_o_addr_rd)
     );
 
     reg es2_ms_o_ce;
@@ -1378,6 +1381,7 @@ module datapath(
     wire [`PC_WIDTH - 1 : 0] es2_o_alu_pc;
     wire [`DWIDTH - 1 : 0] es2_o_alu_value;
     wire [`OPCODE_WIDTH - 1 : 0] es2_o_opcode;
+    wire [`AWIDTH - 1 : 0] es2_o_addr_rd;
     execute es2 (
         .es_i_ce(ds2_es2_o_ce), 
         .es_i_jr(ds2_es2_o_jr), 
@@ -1387,6 +1391,7 @@ module datapath(
         .es_i_alu_op(ds2_es2_o_opcode), 
         .es_i_alu_src(ds2_es2_o_alu_src), 
         .es_i_alu_funct(ds2_es2_o_funct),
+        .es_i_addr_rd(mx2_o_addr_rd),
         .es_i_data_rs(mx_es2_o_data_rs), 
         .es_i_data_rt(mx_es2_o_data_rt), 
         .es_i_jal_addr(ds2_es2_o_jal_addr), 
@@ -1394,7 +1399,8 @@ module datapath(
         .es_o_opcode(es2_o_opcode),
         .es_o_alu_pc(es2_o_alu_pc),
         .es_o_alu_value(es2_o_alu_value), 
-        .es_o_change_pc(es2_o_change_pc)
+        .es_o_change_pc(es2_o_change_pc),
+        .es_o_addr_rd(es2_o_addr_rd)
     );
 
     always @(posedge d_clk, negedge d_rst) begin
@@ -1413,7 +1419,7 @@ module datapath(
         else begin
             es1_ms_o_ce <= es1_o_ce;
             es1_tl1_o_opcode <= es1_o_opcode;
-            es1_ms_o_addr_rd <= mx1_o_addr_rd;
+            es1_ms_o_addr_rd <= es1_o_addr_rd;
             es1_ctrl1_o_alu_pc <= es1_o_alu_pc;
             es1_ms_o_alu_value <= es1_o_alu_value;
             es1_ms_o_memtoreg <= ds1_es1_o_memtoreg;
@@ -1439,7 +1445,7 @@ module datapath(
         else begin
             es2_ms_o_ce <= es2_o_ce;
             es2_tl2_o_opcode <= es2_o_opcode;
-            es2_ms_o_addr_rd <= mx2_o_addr_rd;
+            es2_ms_o_addr_rd <= es2_o_addr_rd;
             es2_ctrl2_o_alu_pc <= es2_o_alu_pc;
             es2_ms_o_alu_value <= es2_o_alu_value;
             es2_ms_o_memtoreg <= ds2_es2_o_memtoreg;

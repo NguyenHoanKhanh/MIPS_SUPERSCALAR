@@ -7,7 +7,8 @@
 
 module execute (
     es_i_ce, es_i_jr, es_i_jal, es_i_jal_addr, es_i_pc, es_i_alu_src, es_i_imm, es_i_alu_op, es_i_alu_funct,
-    es_i_data_rs, es_i_data_rt, es_o_alu_value, es_o_ce, es_o_change_pc, es_o_alu_pc, es_o_opcode
+    es_i_addr_rd, es_i_data_rs, es_i_data_rt, es_o_alu_value, es_o_ce, es_o_change_pc, es_o_alu_pc, es_o_opcode,
+    es_o_addr_rd
 );  
     input es_i_ce;
     input es_i_jr;
@@ -18,12 +19,14 @@ module execute (
     input [`JUMP_WIDTH - 1 : 0] es_i_jal_addr;
     input [`OPCODE_WIDTH - 1 : 0] es_i_alu_op;
     input [`FUNCT_WIDTH - 1 : 0]  es_i_alu_funct;
+    input [`AWIDTH - 1 : 0] es_i_addr_rd;
     input [`DWIDTH - 1 : 0] es_i_data_rs, es_i_data_rt;
     output reg es_o_ce;
     output es_o_change_pc;
     output [`PC_WIDTH - 1 : 0] es_o_alu_pc;
     output reg [`DWIDTH - 1 : 0] es_o_alu_value;
     output reg [`OPCODE_WIDTH - 1 : 0] es_o_opcode;
+    output reg [`AWIDTH - 1 : 0] es_o_addr_rd;
 
     // alu_control computed combinationally from opcode/funct
     wire [4 : 0] alu_control;
@@ -79,11 +82,13 @@ module execute (
             es_o_ce = 1'b1;
             es_o_opcode = es_i_alu_op;
             es_o_alu_value = temp_alu_value;
+            es_o_addr_rd = es_i_addr_rd;
         end
         else begin
             es_o_ce = 1'b0;
             es_o_alu_value = {`DWIDTH{1'b0}};
             es_o_opcode = {`OPCODE_WIDTH{1'b0}};
+            es_o_addr_rd = {`AWIDTH{1'b0}};
         end
     end
 endmodule

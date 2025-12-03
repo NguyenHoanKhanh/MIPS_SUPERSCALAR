@@ -1,53 +1,87 @@
 `ifndef FORWARDING_V
 `define FORWARDING_V
 `include "./source/header.vh"
-module forwarding (
-    ds_es_i_opcode, ds_es_i_addr_rs1, ds_es_i_addr_rs2, es_ms_i_addr_rd, es_ms_i_regwrite, 
-    ms_wb_i_regwrite, ms_wb_i_addr_rd, f_o_control_rs1, f_o_control_rs2, f_o_stall
-);
-    input es_ms_i_regwrite;
-    input ms_wb_i_regwrite;
-    input [`AWIDTH - 1 : 0] es_ms_i_addr_rd;
-    input [`AWIDTH - 1 : 0] ms_wb_i_addr_rd;
-    input [`OPCODE_WIDTH - 1 : 0] ds_es_i_opcode;
-    input [`AWIDTH - 1 : 0] ds_es_i_addr_rs1, ds_es_i_addr_rs2;
-    output reg f_o_stall;
-    output reg [1 : 0] f_o_control_rs1, f_o_control_rs2;
 
-    wire ds_es_op_load = ds_es_i_opcode == `LOAD_WORD;
-    always @(*) begin
-        f_o_stall = 1'b0;
-        if (((ds_es_i_addr_rs1 == es_ms_i_addr_rd) || (ds_es_i_addr_rs2 == es_ms_i_addr_rd)) && ds_es_op_load) begin
-            f_o_stall = 1'b1;
-        end
-        else begin
-            f_o_stall = 1'b0;
-        end
-    end
+module forwarding (
+    ds_es_i_addr_rs1,
+    ds_es_i_addr_rs2,
+    self_ex_i_addr_rd,
+    self_ex_i_regwrite,
+    self_ex_i_memread,
+    self_wb_i_addr_rd,
+    self_wb_i_regwrite,
+    cross_ex_i_addr_rd,
+    cross_ex_i_regwrite,
+    cross_ex_i_memread,
+    cross_wb_i_addr_rd,
+    cross_wb_i_regwrite,
+    f_o_control_rs1,
+    f_o_control_rs2,
+    f_o_stall
+);
+    input [`AWIDTH - 1 : 0] ds_es_i_addr_rs1;
+    input [`AWIDTH - 1 : 0] ds_es_i_addr_rs2;
+
+    input [`AWIDTH - 1 : 0] self_ex_i_addr_rd;
+    input self_ex_i_regwrite;
+    input self_ex_i_memread;
+
+    input [`AWIDTH - 1 : 0] self_wb_i_addr_rd;
+    input self_wb_i_regwrite;
+
+    input [`AWIDTH - 1 : 0] cross_ex_i_addr_rd;
+    input cross_ex_i_regwrite;
+    input cross_ex_i_memread;
+
+    input [`AWIDTH - 1 : 0] cross_wb_i_addr_rd;
+    input cross_wb_i_regwrite;
+
+    output reg [1 : 0] f_o_control_rs1, f_o_control_rs2;
+    output reg f_o_stall;
+
+    wire rs1_nonzero = |ds_es_i_addr_rs1;
+    wire rs2_nonzero = |ds_es_i_addr_rs2;
 
     always @(*) begin
         f_o_control_rs1 = 2'd0;
+        if (rs1_nonzero) begin
+            if ((ds_es_i_addr_rs1 == self_ex_i_addr_rd) && self_ex_i_regwrite && !self_ex_i_memread) begin
+                f_o_control_rs1 = 2'd1;
+            end
+            else if ((ds_es_i_addr_rs1 == cross_ex_i_addr_rd) && cross_ex_i_regwrite && !cross_ex_i_memread) begin
+                f_o_control_rs1 = 2'd3;
+            end
+            else if ((ds_es_i_addr_rs1 == self_wb_i_addr_rd) && self_wb_i_regwrite) begin
+                f_o_control_rs1 = 2'd2;
+            end
+        end
+
         f_o_control_rs2 = 2'd0;
+        if (rs2_nonzero) begin
+            if ((ds_es_i_addr_rs2 == self_ex_i_addr_rd) && self_ex_i_regwrite && !self_ex_i_memread) begin
+                f_o_control_rs2 = 2'd1;
+            end
+            else if ((ds_es_i_addr_rs2 == cross_ex_i_addr_rd) && cross_ex_i_regwrite && !cross_ex_i_memread) begin
+                f_o_control_rs2 = 2'd3;
+            end
+            else if ((ds_es_i_addr_rs2 == self_wb_i_addr_rd) && self_wb_i_regwrite) begin
+                f_o_control_rs2 = 2'd2;
+            end
+        end
+    end
 
-        if ((ds_es_i_addr_rs1 == es_ms_i_addr_rd) && es_ms_i_regwrite) begin
-            f_o_control_rs1 = 2'd1;
-        end 
-        else if ((ds_es_i_addr_rs1 == ms_wb_i_addr_rd) && ms_wb_i_regwrite) begin
-            f_o_control_rs1 = 2'd2;
-        end
-        else begin
-            f_o_control_rs1 = 2'd0;
-        end
+    wire hazard_self_rs1 = self_ex_i_memread && self_ex_i_regwrite && rs1_nonzero &&
+                            (ds_es_i_addr_rs1 == self_ex_i_addr_rd);
+    wire hazard_self_rs2 = self_ex_i_memread && self_ex_i_regwrite && rs2_nonzero &&
+                            (ds_es_i_addr_rs2 == self_ex_i_addr_rd);
+    wire hazard_cross_rs1 = cross_ex_i_memread && cross_ex_i_regwrite && rs1_nonzero &&
+                            (ds_es_i_addr_rs1 == cross_ex_i_addr_rd);
+    wire hazard_cross_rs2 = cross_ex_i_memread && cross_ex_i_regwrite && rs2_nonzero &&
+                            (ds_es_i_addr_rs2 == cross_ex_i_addr_rd);
 
-        if ((ds_es_i_addr_rs2 == es_ms_i_addr_rd) && es_ms_i_regwrite) begin
-            f_o_control_rs2 = 2'd1;
-        end 
-        else if ((ds_es_i_addr_rs2 == ms_wb_i_addr_rd) && ms_wb_i_regwrite) begin
-            f_o_control_rs2 = 2'd2;
-        end
-        else begin
-            f_o_control_rs2 = 2'd0;
-        end
+    always @(*) begin
+        f_o_stall = hazard_self_rs1 || hazard_self_rs2 ||
+                    hazard_cross_rs1 || hazard_cross_rs2;
     end
 endmodule
 `endif 
