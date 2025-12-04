@@ -62,6 +62,7 @@ module datapath (
     reg im_ds1_o_ce, im_ds2_o_ce;
     reg [`PC_WIDTH - 1 : 0] im_ds1_o_pc, im_ds2_o_pc;
     reg [`IWIDTH - 1 : 0] im_ds1_o_instr, im_ds2_o_instr;
+    wire ds1_issue_stall;
     wire ds2_issue_stall;
     imem im (
         .im_clk(d_clk), 
@@ -81,7 +82,7 @@ module datapath (
             im_ds1_o_instr <= {`IWIDTH{1'b0}};
         end
         else begin  
-            if (!fw1_o_stall) begin
+            if (!ds1_issue_stall) begin
                 im_ds1_o_ce <= im_o_ce;
                 im_ds1_o_pc <= pc_im_o_pc_1;           
                 im_ds1_o_instr <= im_o_instr_1;
@@ -190,6 +191,8 @@ end
 
     wire [`DWIDTH - 1 : 0] r_o_data_rs_1, r_o_data_rt_1;
     wire [`DWIDTH - 1 : 0] r_o_data_rs_2, r_o_data_rt_2;
+    wire [`DWIDTH - 1 : 0] r_o_data_q1_rs, r_o_data_q1_rt;
+    wire [`DWIDTH - 1 : 0] r_o_data_q2_rs, r_o_data_q2_rt;
     regis r_eg (
         .r_clk(d_clk), 
         .r_rst(d_rst), 
@@ -199,6 +202,10 @@ end
         .r_i_addr_rt_1(ds1_o_addr_rt), 
         .r_i_addr_rs_2(ds2_o_addr_rs), 
         .r_i_addr_rt_2(ds2_o_addr_rt), 
+        .r_i_addr_q1_rs(qc1_o_addr_rs_r), 
+        .r_i_addr_q1_rt(qc1_o_addr_rt_r),
+        .r_i_addr_q2_rs(qc2_o_addr_rs_r), 
+        .r_i_addr_q2_rt(qc2_o_addr_rt_r),
         .r_i_addr_rd_1(ms_wb1_o_addr_rd), 
         .r_i_data_rd_1(wb_ds1_o_data_rd), 
         .r_i_addr_rd_2(ms_wb2_o_addr_rd), 
@@ -206,7 +213,11 @@ end
         .r_o_data_rs_1(r_o_data_rs_1), 
         .r_o_data_rt_1(r_o_data_rt_1), 
         .r_o_data_rs_2(r_o_data_rs_2), 
-        .r_o_data_rt_2(r_o_data_rt_2) 
+        .r_o_data_rt_2(r_o_data_rt_2),
+        .r_o_data_q1_rs(r_o_data_q1_rs),
+        .r_o_data_q1_rt(r_o_data_q1_rt),
+        .r_o_data_q2_rs(r_o_data_q2_rs),
+        .r_o_data_q2_rt(r_o_data_q2_rt)
     );
 
     wire ctrl1_o_change_pc;
@@ -268,6 +279,8 @@ end
         .cd_o_force_pipe1(cd2_o_force_pipe1)
     );
 
+    wire ds2_queue_request;
+
     always @(posedge d_clk, negedge d_rst) begin
         if (!d_rst) begin
             cd1_q1_o_we <= 1'b0;
@@ -276,9 +289,9 @@ end
             cd2_q2_force_pipe1 <= 1'b0;
         end
         else begin
-            cd1_q1_o_we <= cd1_o_we;
+            cd1_q1_o_we <= cd1_o_we || ds2_queue_pulse;
             cd2_q2_o_we <= cd2_o_we;
-            cd1_q1_force_pipe1 <= cd1_o_force_pipe1;
+            cd1_q1_force_pipe1 <= cd1_o_force_pipe1 || ds2_queue_pulse;
             cd2_q2_force_pipe1 <= cd2_o_force_pipe1;
         end
     end
@@ -337,7 +350,7 @@ reg [`OPCODE_WIDTH - 1 : 0] ds1_es1_o_opcode;
             ds1_es1_o_jal_addr <= {`JUMP_WIDTH{1'b0}};
         end
         else begin
-            if (!fw1_o_stall) begin
+            if (!ds1_issue_stall) begin
                 ds1_es1_o_ce <= ds1_o_ce;
                 ds1_es1_o_jr <= ds1_o_jr;
                 ds1_es1_o_jal <= ds1_o_jal;
@@ -477,10 +490,11 @@ ds2_es2_o_reg_dst <= ds2_es2_o_reg_dst;
     wire [`DWIDTH - 1 : 0] qc1_o_data_rs, qc1_o_data_rt;
     wire [`AWIDTH - 1 : 0] qc1_o_addr_rd, qc1_o_addr_rs, qc1_o_addr_rt;
     wire qc1_o_force_pipe1;
+    wire qc1_dequeue;
     queue_comps qc1 (
         .qc_clk(d_clk), 
         .qc_rst(d_rst), 
-        .qc_i_re(es1_o_qc1), 
+        .qc_i_re(qc1_dequeue), 
         .qc_i_we(cd1_q1_o_we), 
         .qc_i_force_pipe1(cd1_q1_force_pipe1),
         .qc_i_ce(ds2_es2_o_ce), 
@@ -537,6 +551,8 @@ ds2_es2_o_reg_dst <= ds2_es2_o_reg_dst;
     reg qc1_o_alu_src_r;
     reg qc1_o_regwrite_r;
     reg qc1_o_force_pipe1_r;
+    wire [`DWIDTH - 1 : 0] qc1_issue_data_rs = qc1_o_data_rs_r;
+    wire [`DWIDTH - 1 : 0] qc1_issue_data_rt = qc1_o_data_rt_r;
 
     // capture queue outputs on posedge so combinational mux downstream sees stable values
     always @(posedge d_clk, negedge d_rst) begin
@@ -569,8 +585,8 @@ ds2_es2_o_reg_dst <= ds2_es2_o_reg_dst;
             qc1_o_imm_r <= qc1_o_imm;
             qc1_o_funct_r <= qc1_o_funct;
             qc1_o_opcode_r <= qc1_o_opcode;
-            qc1_o_data_rs_r <= qc1_o_data_rs;
-            qc1_o_data_rt_r <= qc1_o_data_rt;
+            qc1_o_data_rs_r <= r_o_data_q1_rs;
+            qc1_o_data_rt_r <= r_o_data_q1_rt;
             qc1_o_addr_rd_r <= qc1_o_addr_rd;
             qc1_o_addr_rs_r <= qc1_o_addr_rs;
             qc1_o_addr_rt_r <= qc1_o_addr_rt;
@@ -598,7 +614,7 @@ wire [`OPCODE_WIDTH - 1 : 0] mc1_o_opcode;
     wire [`DWIDTH - 1 : 0] mc1_o_data_rs, mc1_o_data_rt;
     wire [`AWIDTH - 1 : 0] mc1_o_addr_rd, mc1_o_addr_rs, mc1_o_addr_rt;
     // chooser: select queue when ES1 has signaled fetch; force selection if the entry must run on pipe 1
-    wire choose_mux_1 = (es1_o_qc1) && (qc1_o_force_pipe1_r || qc1_i_cd1);
+    wire choose_mux_1 = qc1_dequeue;
     mux_comps mc1 (
         .choose_comp(choose_mux_1), 
         .m1_i_ce(qc1_o_ce_r), 
@@ -610,8 +626,8 @@ wire [`OPCODE_WIDTH - 1 : 0] mc1_o_opcode;
         .m1_i_opcode(qc1_o_opcode_r), 
         .m1_i_reg_dst(qc1_o_reg_dst_r), 
         .m1_i_alu_src(qc1_o_alu_src_r), 
-        .m1_i_data_rs(qc1_o_data_rs_r), 
-        .m1_i_data_rt(qc1_o_data_rt_r), 
+        .m1_i_data_rs(qc1_issue_data_rs), 
+        .m1_i_data_rt(qc1_issue_data_rt), 
         .m1_i_addr_rd(qc1_o_addr_rd_r), 
         .m1_i_addr_rs(qc1_o_addr_rs_r), 
         .m1_i_addr_rt(qc1_o_addr_rt_r), 
@@ -754,7 +770,7 @@ wire [`OPCODE_WIDTH - 1 : 0] mc1_o_opcode;
         .qc_i_pc(ds1_es1_o_pc),
         .qc_i_jal(ds1_es1_o_jal), 
         .qc_i_imm(ds1_es1_o_imm), 
-        .qc_i_re(es2_o_qc2), 
+        .qc_i_re(qc2_dequeue), 
         .qc_i_force_pipe1(cd2_q2_force_pipe1),
         .qc_i_funct(ds1_es1_o_funct),
 .qc_i_opcode(ds1_es1_o_opcode), 
@@ -799,6 +815,7 @@ wire [`OPCODE_WIDTH - 1 : 0] mc1_o_opcode;
     reg qc2_o_regwrite_r;
     reg qc2_o_memtoreg_r;
     reg qc2_o_memwrite_r;
+    reg qc2_o_force_pipe1_r;
     reg [`PC_WIDTH - 1 : 0] qc2_o_pc_r;
     reg [`IMM_WIDTH - 1 : 0] qc2_o_imm_r;
     reg [`FUNCT_WIDTH - 1 : 0] qc2_o_funct_r;
@@ -818,6 +835,7 @@ wire [`OPCODE_WIDTH - 1 : 0] mc1_o_opcode;
             qc2_o_memtoreg_r <= 1'b0;
             qc2_o_memwrite_r <= 1'b0;
             qc2_o_regwrite_r <= 1'b0;
+            qc2_o_force_pipe1_r <= 1'b0;
             qc2_o_pc_r <= {`PC_WIDTH{1'b0}};
             qc2_o_imm_r <= {`IMM_WIDTH{1'b0}};
             qc2_o_data_rs_r <= {`DWIDTH{1'b0}};
@@ -837,8 +855,8 @@ wire [`OPCODE_WIDTH - 1 : 0] mc1_o_opcode;
             qc2_o_imm_r <= qc2_o_imm;
 qc2_o_funct_r <= qc2_o_funct;
             qc2_o_opcode_r <= qc2_o_opcode;
-            qc2_o_data_rs_r <= qc2_o_data_rs;
-            qc2_o_data_rt_r <= qc2_o_data_rt;
+            qc2_o_data_rs_r <= r_o_data_q2_rs;
+            qc2_o_data_rt_r <= r_o_data_q2_rt;
             qc2_o_addr_rd_r <= qc2_o_addr_rd;
             qc2_o_addr_rs_r <= qc2_o_addr_rs;
             qc2_o_addr_rt_r <= qc2_o_addr_rt;
@@ -848,6 +866,7 @@ qc2_o_funct_r <= qc2_o_funct;
             qc2_o_memtoreg_r <= qc2_o_memtoreg;
             qc2_o_memwrite_r <= qc2_o_memwrite;
             qc2_o_regwrite_r <= qc2_o_regwrite;
+            qc2_o_force_pipe1_r <= qc2_o_force_pipe1;
         end
     end
     // TODO:
@@ -923,8 +942,9 @@ wire [`JUMP_WIDTH - 1 : 0] mc2_o_jal_addr;
     wire [`DWIDTH - 1 : 0] mc2_o_data_rs, mc2_o_data_rt;
     wire [`AWIDTH - 1 : 0] mc2_o_addr_rd, mc2_o_addr_rs, mc2_o_addr_rt;
     // chooser for mc2
-    wire choose_mux_2 = (es2_o_qc2) && qc2_i_cd2;
-    wire block_ds2_direct_issue = cd1_o_force_pipe1;
+    wire qc2_dequeue;
+    wire choose_mux_2 = qc2_dequeue;
+    wire block_ds2_direct_issue = cd1_o_force_pipe1 || ds2_queue_request;
     mux_comps mc2 (
         .choose_comp(choose_mux_2), 
         .m1_i_ce(ci_o_ce), 
@@ -1148,7 +1168,7 @@ cc_qc2_o_memwrite <= 1'b0;
     wire [`DWIDTH - 1 : 0] mx31_1_o_data_rs;
     mux3_1 mux31_1(
         .data(mc1_o_data_rs), 
-        .alu_value(es1_ms_o_alu_value), 
+        .alu_value(es1_o_alu_value), 
         .cross_data(es2_o_alu_value),
         .write_back_data(wb_ds1_o_data_rd), 
         .forwarding(fw1_o_data_rs), 
@@ -1158,7 +1178,7 @@ cc_qc2_o_memwrite <= 1'b0;
     wire [`DWIDTH - 1 : 0] mx31_1_o_data_rt;
     mux3_1 mux31_2(
         .data(mc1_o_data_rt),
-        .alu_value(es1_ms_o_alu_value), 
+        .alu_value(es1_o_alu_value), 
         .cross_data(es2_o_alu_value),
         .write_back_data(wb_ds1_o_data_rd), 
         .forwarding(fw1_o_data_rt), 
@@ -1168,7 +1188,7 @@ cc_qc2_o_memwrite <= 1'b0;
     wire [`DWIDTH - 1 : 0] mx31_2_o_data_rs;
     mux3_1 mux31_3(
         .data(mc2_o_data_rs), 
-        .alu_value(es2_ms_o_alu_value), 
+        .alu_value(es2_o_alu_value), 
         .cross_data(es1_o_alu_value),
         .write_back_data(wb_ds2_o_data_rd), 
         .forwarding(fw2_o_data_rs), 
@@ -1178,7 +1198,7 @@ cc_qc2_o_memwrite <= 1'b0;
     wire [`DWIDTH - 1 : 0] mx31_2_o_data_rt;
     mux3_1 mux31_4(
         .data(mc2_o_data_rt), 
-        .alu_value(es2_ms_o_alu_value), 
+        .alu_value(es2_o_alu_value), 
         .cross_data(es1_o_alu_value),
         .write_back_data(wb_ds2_o_data_rd), 
         .forwarding(fw2_o_data_rt), 
@@ -1242,10 +1262,52 @@ cc_qc2_o_memwrite <= 1'b0;
     wire [`DWIDTH - 1 : 0] es2_o_alu_value;
     wire [`OPCODE_WIDTH - 1 : 0] es2_o_opcode;
     wire [`AWIDTH - 1 : 0] es2_o_addr_rd;
-    wire es1_ex_regwrite = mc1_o_ce && mc1_o_reg_write;
-    wire es1_ex_memread = mc1_o_ce && mc1_o_memtoreg;
-    wire es2_ex_regwrite = mc2_o_ce && mc2_o_reg_write;
-    wire es2_ex_memread = mc2_o_ce && mc2_o_memtoreg;
+    wire es1_ex_regwrite = es1_o_ce && mc1_o_reg_write;
+    wire es1_ex_memread = es1_o_ce && mc1_o_memtoreg;
+    wire es2_ex_regwrite = es2_o_ce && mc2_o_reg_write;
+    wire es2_ex_memread = es2_o_ce && mc2_o_memtoreg;
+
+    reg [`AWIDTH - 1 : 0] es1_ex_stage_addr_rd;
+    reg es1_ex_stage_regwrite;
+    reg es1_ex_stage_memread;
+    reg [`AWIDTH - 1 : 0] es2_ex_stage_addr_rd;
+    reg es2_ex_stage_regwrite;
+    reg es2_ex_stage_memread;
+
+    always @(posedge d_clk, negedge d_rst) begin
+        if (!d_rst) begin
+            es1_ex_stage_addr_rd <= {`AWIDTH{1'b0}};
+            es1_ex_stage_regwrite <= 1'b0;
+            es1_ex_stage_memread <= 1'b0;
+            es2_ex_stage_addr_rd <= {`AWIDTH{1'b0}};
+            es2_ex_stage_regwrite <= 1'b0;
+            es2_ex_stage_memread <= 1'b0;
+        end
+        else begin
+            if (es1_o_ce) begin
+                es1_ex_stage_addr_rd <= es1_o_addr_rd;
+                es1_ex_stage_regwrite <= mc1_o_reg_write;
+                es1_ex_stage_memread <= mc1_o_memtoreg;
+            end
+            else if (!es1_ms_o_ce) begin
+                es1_ex_stage_addr_rd <= {`AWIDTH{1'b0}};
+                es1_ex_stage_regwrite <= 1'b0;
+                es1_ex_stage_memread <= 1'b0;
+            end
+
+            if (es2_o_ce) begin
+                es2_ex_stage_addr_rd <= es2_o_addr_rd;
+                es2_ex_stage_regwrite <= mc2_o_reg_write;
+                es2_ex_stage_memread <= mc2_o_memtoreg;
+            end
+            else if (!es2_ms_o_ce) begin
+                es2_ex_stage_addr_rd <= {`AWIDTH{1'b0}};
+                es2_ex_stage_regwrite <= 1'b0;
+                es2_ex_stage_memread <= 1'b0;
+            end
+        end
+    end
+
     execute_stage es2 (
         .es_i_ce(mc2_o_ce), 
         .es_i_jr(mc2_o_jr), 
@@ -1417,37 +1479,86 @@ ms_wb1_o_alu_value <= es1_ms_o_alu_value;
         end 
     end
 
-    wire es1_issue_load = mc1_o_ce && mc1_o_memtoreg && mc1_o_reg_write && (|es1_o_addr_rd);
-    wire es1_commit_load = ms_wb1_o_memtoreg && ms_wb1_o_regwrite && (|ms_wb1_o_addr_rd);
-    reg [(1 << `AWIDTH) - 1 : 0] pipe1_load_scoreboard;
+    localparam integer REG_COUNT = (1 << `AWIDTH);
+    wire fw1_o_stall;
+    wire [1 : 0] fw1_o_data_rs, fw1_o_data_rt;
+    wire fw2_o_stall;
+    wire [1 : 0] fw2_o_data_rs, fw2_o_data_rt;
+    reg [REG_COUNT - 1 : 0] busy_load;
+
+    function [REG_COUNT - 1 : 0] reg_mask;
+        input [`AWIDTH - 1 : 0] addr;
+        begin
+            reg_mask = {REG_COUNT{1'b0}};
+            if (|addr) begin
+                reg_mask[addr] = 1'b1;
+            end
+        end
+    endfunction
+
+    wire ds1_accept_load = es1_ex_regwrite && es1_ex_memread;
+    wire ds2_accept_load = es2_ex_regwrite && es2_ex_memread && !ds2_queue_request;
+
+    wire [REG_COUNT - 1 : 0] set_load_mask =
+        (ds1_accept_load ? reg_mask(es1_o_addr_rd) : {REG_COUNT{1'b0}}) |
+        (ds2_accept_load ? reg_mask(es2_o_addr_rd) : {REG_COUNT{1'b0}});
+
+    wire [REG_COUNT - 1 : 0] clear_load_mask =
+        ((ms_wb1_o_memtoreg && ms_wb1_o_regwrite) ? reg_mask(ms_wb1_o_addr_rd) : {REG_COUNT{1'b0}}) |
+        ((ms_wb2_o_memtoreg && ms_wb2_o_regwrite) ? reg_mask(ms_wb2_o_addr_rd) : {REG_COUNT{1'b0}});
 
     always @(posedge d_clk, negedge d_rst) begin
         if (!d_rst) begin
-            pipe1_load_scoreboard <= {(1 << `AWIDTH){1'b0}};
+            busy_load <= {REG_COUNT{1'b0}};
         end
         else begin
-            if (es1_commit_load) begin
-                pipe1_load_scoreboard[ms_wb1_o_addr_rd] <= 1'b0;
-            end
-            if (es1_issue_load) begin
-                pipe1_load_scoreboard[es1_o_addr_rd] <= 1'b1;
-            end
+            busy_load <= (busy_load & ~clear_load_mask) | set_load_mask;
         end
     end
 
-    wire ds2_scoreboard_rs_block = (|ds2_es2_o_addr_rs) && pipe1_load_scoreboard[ds2_es2_o_addr_rs];
-    wire ds2_scoreboard_rt_block = (|ds2_es2_o_addr_rt) && pipe1_load_scoreboard[ds2_es2_o_addr_rt];
+    wire [REG_COUNT - 1 : 0] busy_mask = busy_load;
+    wire [REG_COUNT - 1 : 0] ds1_new_busy_mask = (ds1_accept_load) ? reg_mask(es1_o_addr_rd) : {REG_COUNT{1'b0}};
+    wire [REG_COUNT - 1 : 0] busy_mask_with_ds1 = busy_mask | ds1_new_busy_mask;
+    wire [REG_COUNT - 1 : 0] ds2_busy_mask = busy_mask | ds1_new_busy_mask;
+    wire ds1_scoreboard_rs_block = ds1_o_ce && (|ds1_o_addr_rs) && busy_mask_with_ds1[ds1_o_addr_rs];
+    wire ds1_scoreboard_rt_block = ds1_o_ce && (|ds1_o_addr_rt) && busy_mask_with_ds1[ds1_o_addr_rt];
+    wire ds1_scoreboard_block = ds1_scoreboard_rs_block || ds1_scoreboard_rt_block;
+    wire ds2_scoreboard_rs_block = ds2_o_ce && (|ds2_o_addr_rs) && ds2_busy_mask[ds2_o_addr_rs];
+    wire ds2_scoreboard_rt_block = ds2_o_ce && (|ds2_o_addr_rt) && ds2_busy_mask[ds2_o_addr_rt];
     wire ds2_scoreboard_block = ds2_scoreboard_rs_block || ds2_scoreboard_rt_block;
-    assign ds2_issue_stall = fw2_o_stall || ds2_scoreboard_block;
 
-    wire fw1_o_stall;
-    wire [1 : 0] fw1_o_data_rs, fw1_o_data_rt;
+    wire ds2_decode_rs_busy = ds2_es2_o_ce && (|ds2_es2_o_addr_rs) && ds2_busy_mask[ds2_es2_o_addr_rs];
+    wire ds2_decode_rt_busy = ds2_es2_o_ce && (|ds2_es2_o_addr_rt) && ds2_busy_mask[ds2_es2_o_addr_rt];
+    assign ds2_queue_request = ds2_decode_rs_busy || ds2_decode_rt_busy;
+    reg ds2_queue_prev;
+    always @(posedge d_clk, negedge d_rst) begin
+        if (!d_rst) begin
+            ds2_queue_prev <= 1'b0;
+        end
+        else begin
+            ds2_queue_prev <= ds2_queue_request;
+        end
+    end
+    wire ds2_queue_pulse = ds2_queue_request && !ds2_queue_prev;
+
+    assign ds1_issue_stall = fw1_o_stall || ds1_scoreboard_block;
+    assign ds2_issue_stall = fw2_o_stall;
+
+    wire qc1_rs_busy = (|qc1_o_addr_rs_r) && busy_mask[qc1_o_addr_rs_r];
+    wire qc1_rt_busy = (|qc1_o_addr_rt_r) && busy_mask[qc1_o_addr_rt_r];
+    wire queue1_wants_issue = es1_o_qc1 && (qc1_o_force_pipe1_r || qc1_i_cd1);
+    assign qc1_dequeue = queue1_wants_issue && qc1_o_ce_r && !(qc1_rs_busy || qc1_rt_busy);
+
+    wire qc2_rs_busy = (|qc2_o_addr_rs_r) && busy_mask[qc2_o_addr_rs_r];
+    wire qc2_rt_busy = (|qc2_o_addr_rt_r) && busy_mask[qc2_o_addr_rt_r];
+    wire queue2_wants_issue = es2_o_qc2 && (qc2_o_force_pipe1_r || qc2_i_cd2);
+    assign qc2_dequeue = queue2_wants_issue && qc2_o_ce_r && !(qc2_rs_busy || qc2_rt_busy);
     forwarding fw1 (
         .ds_es_i_addr_rs1(mc1_o_addr_rs), 
         .ds_es_i_addr_rs2(mc1_o_addr_rt), 
-        .self_ex_i_addr_rd(es1_ms_o_addr_rd), 
-        .self_ex_i_regwrite(es1_ms_o_regwrite), 
-        .self_ex_i_memread(es1_ms_o_memtoreg),
+        .self_ex_i_addr_rd(es1_ex_stage_addr_rd), 
+        .self_ex_i_regwrite(es1_ex_stage_regwrite), 
+        .self_ex_i_memread(es1_ex_stage_memread),
         .self_wb_i_addr_rd(ms_wb1_o_addr_rd), 
         .self_wb_i_regwrite(ms_wb1_o_regwrite), 
         .cross_ex_i_addr_rd(es2_o_addr_rd),
@@ -1459,15 +1570,12 @@ ms_wb1_o_alu_value <= es1_ms_o_alu_value;
         .f_o_control_rs2(fw1_o_data_rt),
         .f_o_stall(fw1_o_stall)
     );
-
-    wire fw2_o_stall;
-    wire [1 : 0] fw2_o_data_rs, fw2_o_data_rt;
     forwarding fw2 (
         .ds_es_i_addr_rs1(mc2_o_addr_rs),
         .ds_es_i_addr_rs2(mc2_o_addr_rt),
-        .self_ex_i_addr_rd(es2_ms_o_addr_rd),
-        .self_ex_i_regwrite(es2_ms_o_regwrite),
-        .self_ex_i_memread(es2_ms_o_memtoreg),
+        .self_ex_i_addr_rd(es2_ex_stage_addr_rd),
+        .self_ex_i_regwrite(es2_ex_stage_regwrite),
+        .self_ex_i_memread(es2_ex_stage_memread),
         .self_wb_i_addr_rd(ms_wb2_o_addr_rd),
         .self_wb_i_regwrite(ms_wb2_o_regwrite),
         .cross_ex_i_addr_rd(es1_o_addr_rd),

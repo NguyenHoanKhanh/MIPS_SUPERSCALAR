@@ -1,17 +1,17 @@
- iverilog -o .\trash\testdtp .\test\tb_dtp.v                                                                                                          
- vvp .\trash\testdtp
+iverilog -o .\trash\testdtp .\test\tb_dtp.v
+vvp .\trash\testdtp
 VCD info: dumpfile ./waveform/dtp.vcd opened for output.
-0: PC_1 = 0, PC_2 = 0, instr_1 = 00000000, instr_2 = 00000000, wb_ds1_o_data_rd =          0, wb_ds2_o_data_rd =          0
-25: PC_1 = 0, PC_2 = 4, instr_1 = 00000000, instr_2 = 00000000, wb_ds1_o_data_rd =          0, wb_ds2_o_data_rd =          0
-35: PC_1 = 8, PC_2 = 12, instr_1 = 00000000, instr_2 = 00000000, wb_ds1_o_data_rd =          0, wb_ds2_o_data_rd =          0
-45: PC_1 = 16, PC_2 = 20, instr_1 = 00000000, instr_2 = 00000000, wb_ds1_o_data_rd =          0, wb_ds2_o_data_rd =          0
-55: PC_1 = 24, PC_2 = 28, instr_1 = 00201820, instr_2 = 00643020, wb_ds1_o_data_rd =          0, wb_ds2_o_data_rd =          0
-65: PC_1 = 32, PC_2 = 36, instr_1 = 00861020, instr_2 = 00430820, wb_ds1_o_data_rd =          0, wb_ds2_o_data_rd =          0
-75: PC_1 = 40, PC_2 = 44, instr_1 = xxxxxxxx, instr_2 = xxxxxxxx, wb_ds1_o_data_rd =          0, wb_ds2_o_data_rd =          0
-85: PC_1 = 48, PC_2 = 52, instr_1 = xxxxxxxx, instr_2 = xxxxxxxx, wb_ds1_o_data_rd =          1, wb_ds2_o_data_rd =          0
-95: PC_1 = 56, PC_2 = 60, instr_1 = xxxxxxxx, instr_2 = xxxxxxxx, wb_ds1_o_data_rd =          5, wb_ds2_o_data_rd =          0
-105: PC_1 = 64, PC_2 = 68, instr_1 = xxxxxxxx, instr_2 = xxxxxxxx, wb_ds1_o_data_rd =          11, wb_ds2_o_data_rd =         10
-115: PC_1 = 72, PC_2 = 76, instr_1 = xxxxxxxx, instr_2 = xxxxxxxx, wb_ds1_o_data_rd =          0, wb_ds2_o_data_rd =         0
-125: PC_1 = 80, PC_2 = 84, instr_1 = xxxxxxxx, instr_2 = xxxxxxxx, wb_ds1_o_data_rd =          0, wb_ds2_o_data_rd =          0
-135: PC_1 = 88, PC_2 = 92, instr_1 = xxxxxxxx, instr_2 = xxxxxxxx, wb_ds1_o_data_rd =          0, wb_ds2_o_data_rd =          0
-145: PC_1 = 96, PC_2 = 100, instr_1 = xxxxxxxx, instr_2 = xxxxxxxx, wb_ds1_o_data_rd =          0, wb_ds2_o_data_rd =          0
+0: PC_1 = 0, PC_2 = 0, instr_1 = 00000000, instr_2 = 00000000, wb_ds1_o_data_rd = 0, wb_ds2_o_data_rd = 0
+25: PC_1 = 0, PC_2 = 4, instr_1 = 00000000, instr_2 = 00000000, wb_ds1_o_data_rd = 0, wb_ds2_o_data_rd = 0
+35: PC_1 = 8, PC_2 = 12, instr_1 = 00000000, instr_2 = 00000000, wb_ds1_o_data_rd = 0, wb_ds2_o_data_rd = 0
+45: PC_1 = 16, PC_2 = 20, instr_1 = 00000000, instr_2 = 00000000, wb_ds1_o_data_rd = 0, wb_ds2_o_data_rd = 0
+55: PC_1 = 24, PC_2 = 28, instr_1 = 01460820, instr_2 = 01611020, wb_ds1_o_data_rd = 0, wb_ds2_o_data_rd = 0
+65: PC_1 = 32, PC_2 = 36, instr_1 = 01821820, instr_2 = 01a32020, wb_ds1_o_data_rd = 0, wb_ds2_o_data_rd = 0
+75: PC_1 = 40, PC_2 = 44, instr_1 = 00222820, instr_2 = 014b3020, wb_ds1_o_data_rd = 0, wb_ds2_o_data_rd = 0
+85: PC_1 = 48, PC_2 = 52, instr_1 = 00c33820, instr_2 = 00834020, wb_ds1_o_data_rd = 16, wb_ds2_o_data_rd = 21
+95: PC_1 = 56, PC_2 = 60, instr_1 = xxxxxxxx, instr_2 = xxxxxxxx, wb_ds1_o_data_rd = 27, wb_ds2_o_data_rd = 0
+105: PC_1 = 64, PC_2 = 68, instr_1 = xxxxxxxx, instr_2 = xxxxxxxx, wb_ds1_o_data_rd = 39, wb_ds2_o_data_rd = 43
+115: PC_1 = 72, PC_2 = 76, instr_1 = xxxxxxxx, instr_2 = xxxxxxxx, wb_ds1_o_data_rd = 52, wb_ds2_o_data_rd = 60
+125: PC_1 = 80, PC_2 = 84, instr_1 = xxxxxxxx, instr_2 = xxxxxxxx, wb_ds1_o_data_rd = 112, wb_ds2_o_data_rd = 0
+135: PC_1 = 88, PC_2 = 92, instr_1 = xxxxxxxx, instr_2 = xxxxxxxx, wb_ds1_o_data_rd = 0, wb_ds2_o_data_rd = 0
+145: PC_1 = 96, PC_2 = 100, instr_1 = xxxxxxxx, instr_2 = xxxxxxxx, wb_ds1_o_data_rd = 0, wb_ds2_o_data_rd = 0
