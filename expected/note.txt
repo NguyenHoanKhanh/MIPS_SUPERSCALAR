@@ -1,0 +1,50 @@
+Đã rà lại trạng thái source sau khi bạn rollback. Kết luận:
+
+1. Forwarding hiện tại chưa đáp ứng được cross‑pipe
+source/forwarding.v chỉ so sánh ds_es_* với es_ms_* và ms_wb_* trong cùng pipe, không có đường cross (es1 ↔ es2). Vì vậy pipe 1 không thể lấy trực tiếp kết quả vừa tính ở pipe 2 (thiếu tuyến chọn kiểu cross_EX).
+mux3_1.v hiện chỉ có 3 ngõ vào (RF, self EX, WB), không có cross_data. Trong source/data.v (lines 1168-1206) cả bốn mux mux31_* đều chỉ nhận alu_value của pipe mình (hoặc còn nhầm lẫn như mux31_4 dùng es1_ms_o_alu_value). Điều này khiến dù forwarding unit có chỉ thị cross thì cũng không có dữ liệu để lấy.
+Việc cần làm:
+
+Mở rộng forwarding.v để nhận các tín hiệu từ cả hai pipe:
+module forwarding (
+    ds_es_addr_rs1, ds_es_addr_rs2,
+    self_ex_addr_rd, self_ex_regwrite, self_ex_memread,
+    self_wb_addr_rd, self_wb_regwrite,
+    cross_ex_addr_rd, cross_ex_regwrite, cross_ex_memread,
+    cross_wb_addr_rd, cross_wb_regwrite,
+    f_sel_rs1, f_sel_rs2, f_stall);
+Nếu self_ex_memread hoặc cross_ex_memread thì phải phát stall (load-use).
+Cập nhật mux3_1.v thành 4:1 (RF/self EX/self WB/cross EX) và chỉnh toàn bộ instantiation tại source/data.v (lines 1168-1206) để truyền cross_data thích hợp (es2_o_alu_value cho pipe1, es1_o_alu_value cho pipe2).
+Ở data.v, cần expose luồng EX “raw” trước khi latch sang MS. Tạo các register như es1_ex_stage_* (addr_rd, regwrite, memread, alu_value) lấy từ es1_o_* và xóa khi pipe idle. Forwarding phải dùng chính các register này.
+2. Scoreboard và queue chưa tồn tại
+Trong bản hiện tại hoàn toàn không có bitmask nào theo dõi register đang bận (load hoặc write). Pipe 2 chỉ bị điều khiển bởi choose_comps, không hiểu các phụ thuộc sâu hơn → nên lệnh phụ thuộc (I2/I3) không bao giờ được issue sớm, log dừng ở 65‑75 ns như bạn thấy.
+queue_components.v không được nối tới regis để re-read operands. Khi một lệnh bị đẩy vào queue rồi later issue lại, nó dùng snapshot cũ → sau khi I1 tạo S1=16, I2 vẫn đọc S1 cũ (0).
+Việc cần làm:
+
+Tại data.v, thêm bitmask busy_write (32 bit) + busy_load. Set khi pipe issue lệnh ghi (trừ $0), clear khi WB xong. Dựa trên mask này:
+Nếu pipe 1 decode thấy rs/rt bận → stall decode.
+Pipe 2 (và queue) chỉ được issue khi mọi nguồn đã “ready” (bit=0 hoặc forwarding cover).
+Điều chỉnh queue_components.v:
+Thêm các cổng địa chỉ để đọc lại register file: r_i_addr_q1_rs, ... (đã có trong regis.v nhưng chưa dùng).
+Khi queue chuẩn bị output, thay vì dùng dữ liệu đã lưu, hãy lấy dữ liệu mới từ regis thông qua các tín hiệu r_o_data_q1_*. Điều này đảm bảo I2/I3 nhận được giá trị mới từ các lệnh trước.
+3. Xử lý load-use và branch/store
+Forwarding mới phải phát stall nếu self_ex_memread hoặc cross_ex_memread đang cung cấp data chưa có (load).
+Khi lệnh là store, cả địa chỉ lẫn dữ liệu đều có thể cần forwarding từ pipe kia → cần đảm bảo mux31_* cũng dùng cross_data cho nhánh store.
+Branch/JR/JAL: do pipeline superscalar, nếu branch ở pipe1, pipe2 phải biết khi nào flush queue. Trong data.v nên kiểm tra es1_ctrl1_o_change_pc để clear queue/bitmask.
+4. Testbench và expected log
+test/tb_dtp.v nên chạy đủ lâu (ví dụ repeat(40) @(posedge d_clk);) để pipeline chảy hết; hiện file rollback lại repeat(12) nên log chỉ tới 75 ns. Sau khi sửa code, cập nhật expected/testdtp.txt tương ứng.
+5. Quy trình thực hiện
+Forwarding & mux: sửa forwarding.v, mux3_1.v, và wiring ở data.v (lines 1168-1206) + thêm register es?_ex_stage_*.
+Scoreboard: thêm bitmask, logic stall và clear ngay trước forwarding fw1/fw2 (tầm vùng 1300+).
+Queue: sửa queue_components.v để cung cấp địa chỉ đọc RF, cập nhật regis.v (đã hỗ trợ) và data.v để nối r_o_data_q?_rs.
+Load/store/branch: kiểm tra treat_load/store rồi đảm bảo forwarding/cross-data cung cấp input.
+Test: kéo dài tb_dtp.v, chạy iverilog + vvp, so log với expected/testdtp.txt, chỉnh expected khi kết quả mới ổn.
+Làm theo roadmap trên sẽ đưa pipeline đạt chuỗi mong muốn 16→27→39→52→... và bạn có thể mở rộng sang bài toán 100k lệnh sau này.
+
+
+
+
+
+Auto context
+
+

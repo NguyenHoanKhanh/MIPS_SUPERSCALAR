@@ -42,9 +42,10 @@ module tb;
 
     initial begin
         reset(2);
-        @(posedge d_clk);
-        d_i_ce = 1'b1;
-        repeat(12) @(posedge d_clk);
+    @(posedge d_clk);
+    d_i_ce = 1'b1;
+    // shorten simulation to finish around 165 ns (25 + 14*10 = 165)
+    repeat(14) @(posedge d_clk);
         $finish;
     end
 

@@ -1,19 +1,18 @@
-`ifndef EXECUTE_STAGE_1_V
+`ifndef EXECUTE_STAGE_V
 `define EXECUTE_STAGE_V
-`include "./source/alu_1.v"
+`include "./source/alu.v"
 `include "./source/header.vh"
 `include "./source/alu_control.v"
 `include "./source/treat_jal.v"
 
-module execute_stage (
-    es_i_ce, es_i_fetch_queue, es_i_jr, es_i_jal, es_i_jal_addr, es_i_pc, es_i_alu_src, es_i_imm, es_i_alu_op, es_i_alu_funct,
-    es_i_data_rs, es_i_data_rt, es_o_alu_value, es_o_ce, es_o_change_pc, es_o_alu_pc, es_o_opcode, es_o_fetch_queue
+module execute (
+    es_i_ce, es_i_jr, es_i_jal, es_i_jal_addr, es_i_pc, es_i_alu_src, es_i_imm, es_i_alu_op, es_i_alu_funct,
+    es_i_data_rs, es_i_data_rt, es_o_alu_value, es_o_ce, es_o_change_pc, es_o_alu_pc, es_o_opcode
 );  
     input es_i_ce;
     input es_i_jr;
     input es_i_jal;
     input es_i_alu_src;
-    input es_i_fetch_queue;
     input [`PC_WIDTH - 1 : 0] es_i_pc;
     input [`IMM_WIDTH - 1 : 0] es_i_imm;
     input [`JUMP_WIDTH - 1 : 0] es_i_jal_addr;
@@ -22,7 +21,6 @@ module execute_stage (
     input [`DWIDTH - 1 : 0] es_i_data_rs, es_i_data_rt;
     output reg es_o_ce;
     output es_o_change_pc;
-    output es_o_fetch_queue;
     output [`PC_WIDTH - 1 : 0] es_o_alu_pc;
     output reg [`DWIDTH - 1 : 0] es_o_alu_value;
     output reg [`OPCODE_WIDTH - 1 : 0] es_o_opcode;
@@ -37,10 +35,9 @@ module execute_stage (
 
     // instantiate combinational ALU
     wire change_pc;
-    wire check_queue;
     wire [`PC_WIDTH - 1 : 0] alu_pc;
     wire [`DWIDTH - 1 : 0] alu_value;
-    alu_1 a (
+    alu a (
         .a_i_pc(es_i_pc), 
         .a_i_imm(es_i_imm), 
         .a_i_funct(alu_control), 
@@ -49,8 +46,7 @@ module execute_stage (
         .a_i_alu_src(es_i_alu_src), 
         .alu_pc(alu_pc), 
         .alu_value(alu_value), 
-        .a_o_change_pc(change_pc),
-        .a_o_check_queue(check_queue)
+        .a_o_change_pc(change_pc)
     );
 
     wire [`PC_WIDTH - 1 : 0] temp_pc;
@@ -67,7 +63,6 @@ module execute_stage (
 
     wire take_jr = es_i_jr;
     wire take_jal = es_i_jal;
-    assign es_o_fetch_queue = (es_i_fetch_queue) ? check_queue : 1'b0;
     assign es_o_change_pc = (take_jal & temp_jal_change_pc) 
                             || (take_jr && change_pc);
     assign es_o_alu_pc = (take_jr && change_pc) ? alu_pc 

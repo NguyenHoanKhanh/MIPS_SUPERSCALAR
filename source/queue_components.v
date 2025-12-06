@@ -6,13 +6,11 @@ module queue_comps (
     qc_clk, qc_rst, qc_i_ce, qc_i_pc, qc_i_jr, qc_i_jal, qc_i_imm, qc_i_funct, qc_i_opcode, 
     qc_i_reg_dst, qc_i_alu_src, qc_i_data_rs, qc_i_data_rt, qc_i_memtoreg, qc_i_memwrite,
     qc_i_jal_addr, qc_i_reg_write, qc_i_addr_rd, qc_i_addr_rs, qc_i_addr_rt, qc_i_we, 
-    qc_i_re, qc_i_force_pipe1, qc_o_addr_rd, qc_o_addr_rs, qc_o_addr_rt, qc_o_ce, qc_o_jr, qc_o_jal, 
+    qc_i_re, qc_o_addr_rd, qc_o_addr_rs, qc_o_addr_rt, qc_o_ce, qc_o_jr, qc_o_jal, 
     qc_o_imm, qc_o_funct, qc_o_opcode, qc_o_reg_dst, qc_o_alu_src, qc_o_data_rs, 
-    qc_o_data_rt, qc_o_memtoreg, qc_o_memwrite, qc_o_jal_addr, qc_o_regwrite, qc_o_pc,
-    qc_o_force_pipe1
+    qc_o_data_rt, qc_o_memtoreg, qc_o_memwrite, qc_o_jal_addr, qc_o_regwrite, qc_o_pc
 );
     input qc_i_we, qc_i_re;
-    input qc_i_force_pipe1;
 
     input qc_i_ce;
     input qc_i_reg_dst;
@@ -30,7 +28,6 @@ module queue_comps (
     input [`DWIDTH - 1 : 0] qc_i_data_rs, qc_i_data_rt;
     input [`AWIDTH - 1 : 0] qc_i_addr_rd, qc_i_addr_rs, qc_i_addr_rt;
 
-    output qc_o_force_pipe1;
     output qc_o_ce;
     output qc_o_reg_dst;
     output qc_o_alu_src;
@@ -57,7 +54,6 @@ module queue_comps (
     reg temp_memtoreg [(2 ** `DEPTH) - 1 : 0];
     reg temp_memwrite [(2 ** `DEPTH) - 1 : 0];
     reg temp_reg_write [(2 ** `DEPTH) - 1 : 0];
-    reg temp_force_pipe1 [(2 ** `DEPTH) - 1 : 0];
     reg [`PC_WIDTH - 1 : 0] temp_pc [(2 ** `DEPTH) - 1 : 0];
     reg [`IMM_WIDTH - 1 : 0] temp_imm [(2 ** `DEPTH) - 1 : 0];
     reg [`DWIDTH - 1 : 0] temp_data_rs [(2 ** `DEPTH) - 1 : 0];
@@ -87,7 +83,6 @@ module queue_comps (
     assign qc_o_memtoreg = temp_memtoreg[from_end];
     assign qc_o_memwrite = temp_memwrite[from_end];
     assign qc_o_regwrite = temp_reg_write[from_end];
-    assign qc_o_force_pipe1 = temp_force_pipe1[from_end];
 
     always @(negedge qc_clk, negedge qc_rst) begin
         if (!qc_rst) begin
@@ -100,7 +95,6 @@ module queue_comps (
                 temp_memtoreg[i] <= 1'b0;
                 temp_memwrite[i] <= 1'b0;
                 temp_reg_write[i] <= 1'b0;
-                temp_force_pipe1[i] <= 1'b0;
                 temp_pc[i] <= {`PC_WIDTH{1'b0}};
                 temp_imm[i] <= {`IMM_WIDTH{1'b0}};
                 temp_addr_rd[i] <= {`AWIDTH{1'b0}};
@@ -137,7 +131,6 @@ module queue_comps (
                     temp_memwrite[from_begin] <= qc_i_memwrite;
                     temp_jal_addr[from_begin] <= qc_i_jal_addr;
                     temp_reg_write[from_begin] <= qc_i_reg_write;
-                    temp_force_pipe1[from_begin] <= qc_i_force_pipe1;
                     count <= count + 1;
                     from_begin <= (from_begin == (2 ** `DEPTH) - 1) ? 0 : from_begin + 1;
                 end
