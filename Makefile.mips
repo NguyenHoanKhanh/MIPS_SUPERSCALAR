@@ -1,0 +1,262 @@
+# Standalone runner for the restored MIPS_SUPERSCALAR project.
+#
+# Default target path points to the separated copy from this workspace:
+#   D:/MIPS_SUPERSCALAR
+#
+# The relative path avoids Windows make/codepage issues with Vietnamese
+# characters in the absolute path.
+#
+# Usage:
+#   make -f Makefile.mips info
+#   make -f Makefile.mips run_raw_print
+#
+# If your copy is elsewhere, override MIPS_ROOT:
+#   make -f Makefile.mips MIPS_ROOT="/mnt/d/Hoc tap/MIPS_SUPERSCALAR" run_raw_print
+
+MIPS_ROOT ?= D:/MIPS_SUPERSCALAR
+MIPS_SRC := $(MIPS_ROOT)/source
+MIPS_TEST := $(MIPS_ROOT)/test
+MIPS_SIM := $(MIPS_ROOT)/sim
+MIPS_BUILD := $(MIPS_ROOT)/build
+MIPS_WAVE := $(MIPS_ROOT)/waveform
+
+IVERILOG ?= iverilog
+VVP ?= vvp
+RISCV_GCC ?= riscv64-unknown-elf-gcc
+RISCV_OBJCOPY ?= riscv64-unknown-elf-objcopy
+RISCV_OBJDUMP ?= riscv64-unknown-elf-objdump
+
+MIPS_MAX_CYCLES ?= 5000
+MIPS_PROGRAM_INSTRS ?= 605
+MIPS_EXPECTED_COMMITS ?= $(MIPS_PROGRAM_INSTRS)
+MIPS_DRAIN_CYCLES ?= 200
+
+BENCH_VVP := ./sim/mips_benchmark.vvp
+DATAPATH_VVP := ./sim/mips_datapath.vvp
+MIPS_RISCV_TESTS := riscv-tests-master/isa/rv32i_mips_safe
+MIPS_FRIENDLY_RISCV_TESTS := riscv-tests-master/isa/rv32i_mips_friendly
+MIPS_BENCH_BUILD_DIR := build/mips
+MIPS_EXTRA_PLUSARGS ?=
+
+RV32I_R_BENCHMARKS := add sub and or xor sll srl sra slt sltu
+RV32I_I_BENCHMARKS := addi andi ori xori slli srli srai slti sltiu srl_ext sra_ext
+MIPS_LOAD_STORE_BENCHMARKS := lw sw
+MIPS_SUPPORTED_BENCHMARKS := $(RV32I_R_BENCHMARKS) $(RV32I_I_BENCHMARKS) $(MIPS_LOAD_STORE_BENCHMARKS)
+
+.PHONY: \
+	info check_root dirs \
+	compile run run_raw run_print run_raw_print \
+	compile_datapath run_datapath wave_path \
+	clean_mips \
+	mips_info mips_compile mips_run mips_run_raw mips_run_print mips_run_raw_print \
+	mips_build_clean mips_run_clean mips_build_friendly mips_run_friendly \
+	mips_report_i mips_report_im report_i mips_friendly_report_i mips_friendly_report_im \
+	mips_report_current
+
+info:
+	@echo "MIPS_ROOT          = $(MIPS_ROOT)"
+	@echo "MIPS_SRC           = $(MIPS_SRC)"
+	@echo "MIPS_TEST          = $(MIPS_TEST)"
+	@echo "Benchmark VVP      = $(BENCH_VVP)"
+	@echo "Datapath VVP       = $(DATAPATH_VVP)"
+	@echo "Waveform directory = $(MIPS_WAVE)"
+	@echo ""
+	@echo "Main commands:"
+	@echo "  make -f Makefile.mips run_raw_print"
+	@echo "  make -f Makefile.mips run"
+	@echo "  make -f Makefile.mips wave_path"
+
+check_root:
+	@powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "if (-not (Test-Path -LiteralPath '$(MIPS_ROOT)' -PathType Container)) { Write-Host 'Missing MIPS_ROOT: $(MIPS_ROOT)'; Write-Host 'Copy MIPS_SUPERSCALAR there or override MIPS_ROOT=...'; exit 1 }"
+	@powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "if (-not (Test-Path -LiteralPath '$(MIPS_SRC)' -PathType Container)) { Write-Host 'Missing source directory: $(MIPS_SRC)'; exit 1 }"
+	@powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "if (-not (Test-Path -LiteralPath '$(MIPS_TEST)' -PathType Container)) { Write-Host 'Missing test directory: $(MIPS_TEST)'; exit 1 }"
+
+dirs: check_root
+	@powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "New-Item -ItemType Directory -Force -Path '$(MIPS_SIM)','$(MIPS_BUILD)','$(MIPS_WAVE)','$(MIPS_ROOT)/tools' | Out-Null"
+
+compile: dirs
+	@echo "Compiling MIPS_SUPERSCALAR benchmark testbench"
+	@powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Set-Location -LiteralPath '$(MIPS_ROOT)'; & '$(IVERILOG)' -g2005 -I './source' -o '$(BENCH_VVP)' './test/tb_benchmark.v'"
+
+run: compile
+	@echo "Running MIPS_SUPERSCALAR benchmark mode"
+	@powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Set-Location -LiteralPath '$(MIPS_ROOT)'; & '$(VVP)' '$(BENCH_VVP)' +MIPS_MAX_CYCLES=$(MIPS_MAX_CYCLES) +MIPS_PROGRAM_INSTRS=$(MIPS_PROGRAM_INSTRS) +MIPS_EXPECTED_COMMITS=$(MIPS_EXPECTED_COMMITS) +MIPS_DRAIN_CYCLES=$(MIPS_DRAIN_CYCLES)"
+
+run_raw: compile
+	@echo "Running MIPS_SUPERSCALAR raw mode"
+	@powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Set-Location -LiteralPath '$(MIPS_ROOT)'; & '$(VVP)' '$(BENCH_VVP)' +RAW_RESULT +MIPS_MAX_CYCLES=$(MIPS_MAX_CYCLES) +MIPS_PROGRAM_INSTRS=$(MIPS_PROGRAM_INSTRS) +MIPS_EXPECTED_COMMITS=$(MIPS_EXPECTED_COMMITS) +MIPS_DRAIN_CYCLES=$(MIPS_DRAIN_CYCLES)"
+
+run_print: compile
+	@echo "Running MIPS_SUPERSCALAR benchmark mode with commit trace"
+	@powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Set-Location -LiteralPath '$(MIPS_ROOT)'; & '$(VVP)' '$(BENCH_VVP)' +PRINT_COMMITS +MIPS_MAX_CYCLES=$(MIPS_MAX_CYCLES) +MIPS_PROGRAM_INSTRS=$(MIPS_PROGRAM_INSTRS) +MIPS_EXPECTED_COMMITS=$(MIPS_EXPECTED_COMMITS) +MIPS_DRAIN_CYCLES=$(MIPS_DRAIN_CYCLES)"
+
+run_raw_print: compile
+	@echo "Running MIPS_SUPERSCALAR raw mode with commit trace"
+	@powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Set-Location -LiteralPath '$(MIPS_ROOT)'; & '$(VVP)' '$(BENCH_VVP)' +RAW_RESULT +PRINT_COMMITS +MIPS_MAX_CYCLES=$(MIPS_MAX_CYCLES) +MIPS_PROGRAM_INSTRS=$(MIPS_PROGRAM_INSTRS) +MIPS_EXPECTED_COMMITS=$(MIPS_EXPECTED_COMMITS) +MIPS_DRAIN_CYCLES=$(MIPS_DRAIN_CYCLES)"
+
+compile_datapath: dirs
+	@echo "tb_datapath.v expects ./source/datapath.v, but this tree uses ./source/data.v as the datapath wrapper."
+	@echo "Use run_raw_print or run instead."
+	@exit 1
+
+run_datapath: compile_datapath
+
+wave_path:
+	@echo "$(MIPS_WAVE)"
+	@echo "Benchmark waveform: $(MIPS_WAVE)/mips_benchmark.vcd"
+	@echo "Datapath waveform : $(MIPS_WAVE)/datapath.vcd"
+
+clean_mips:
+	@echo "Cleaning generated MIPS_SUPERSCALAR sim/build/waveform outputs under $(MIPS_ROOT)"
+	@powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Remove-Item -LiteralPath '$(MIPS_SIM)','$(MIPS_BUILD)','$(MIPS_WAVE)' -Recurse -Force -ErrorAction SilentlyContinue"
+
+mips_info: info
+mips_compile: compile
+mips_run: run
+mips_run_raw: run_raw
+mips_run_print: run_print
+mips_run_raw_print: run_raw_print
+mips_report_current: run
+
+mips_build_clean: dirs
+	@test -n "$(BENCH)" || (echo "Usage: make mips_run_clean BENCH=add"; exit 1)
+	@test -f "$(MIPS_RISCV_TESTS)/$(BENCH).S" || (echo "Missing benchmark: $(MIPS_RISCV_TESTS)/$(BENCH).S"; exit 1)
+	@test -f "tools/bin_to_word_hex.ps1" || (echo "Missing tools/bin_to_word_hex.ps1"; exit 1)
+	@mkdir -p "$(MIPS_BENCH_BUILD_DIR)"
+	@echo "Building RV32I MIPS-safe benchmark: $(BENCH)"
+	@$(RISCV_GCC) -march=rv32im -mabi=ilp32 -nostdlib -nostartfiles -Wl,--no-relax -Ttext=0x0 "$(MIPS_RISCV_TESTS)/$(BENCH).S" -o "$(MIPS_BENCH_BUILD_DIR)/$(BENCH).elf"
+	@$(RISCV_OBJDUMP) -d -M no-aliases "$(MIPS_BENCH_BUILD_DIR)/$(BENCH).elf" > "$(MIPS_BENCH_BUILD_DIR)/$(BENCH).dump"
+	@$(RISCV_OBJCOPY) -O binary "$(MIPS_BENCH_BUILD_DIR)/$(BENCH).elf" "$(MIPS_BENCH_BUILD_DIR)/$(BENCH).bin"
+	@powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/bin_to_word_hex.ps1 "$(MIPS_BENCH_BUILD_DIR)/$(BENCH).bin" "$(MIPS_BENCH_BUILD_DIR)/$(BENCH).hex" "$(MIPS_BENCH_BUILD_DIR)/$(BENCH)_program_info.vh"
+	@cp "$(MIPS_BENCH_BUILD_DIR)/$(BENCH).hex" "source/imem.txt"
+	@cp "$(MIPS_BENCH_BUILD_DIR)/$(BENCH)_program_info.vh" "source/program_info.vh"
+
+mips_run_clean: mips_build_clean
+	@$(MAKE) --no-print-directory compile
+	@echo "Running RV32I MIPS-safe benchmark on MIPS_SUPERSCALAR: $(BENCH)"
+	@program_instrs=`awk 'END { print NR }' "$(MIPS_BENCH_BUILD_DIR)/$(BENCH).hex"`; \
+	powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Set-Location -LiteralPath '$(MIPS_ROOT)'; & '$(VVP)' '$(BENCH_VVP)' +MIPS_IMEM_WORDS=$${program_instrs} +MIPS_PROGRAM_INSTRS=$${program_instrs} +MIPS_MAX_CYCLES=$(MIPS_MAX_CYCLES) +MIPS_DRAIN_CYCLES=$(MIPS_DRAIN_CYCLES) $(MIPS_EXTRA_PLUSARGS)"
+
+mips_build_friendly: dirs
+	@test -n "$(BENCH)" || (echo "Usage: make mips_run_friendly BENCH=add"; exit 1)
+	@test -f "$(MIPS_FRIENDLY_RISCV_TESTS)/$(BENCH).S" || (echo "Missing benchmark: $(MIPS_FRIENDLY_RISCV_TESTS)/$(BENCH).S"; exit 1)
+	@test -f "tools/bin_to_word_hex.ps1" || (echo "Missing tools/bin_to_word_hex.ps1"; exit 1)
+	@mkdir -p "$(MIPS_BENCH_BUILD_DIR)"
+	@echo "Building RV32I MIPS-friendly benchmark: $(BENCH)"
+	@$(RISCV_GCC) -march=rv32im -mabi=ilp32 -nostdlib -nostartfiles -Wl,--no-relax -Ttext=0x0 "$(MIPS_FRIENDLY_RISCV_TESTS)/$(BENCH).S" -o "$(MIPS_BENCH_BUILD_DIR)/friendly_$(BENCH).elf"
+	@$(RISCV_OBJDUMP) -d -M no-aliases "$(MIPS_BENCH_BUILD_DIR)/friendly_$(BENCH).elf" > "$(MIPS_BENCH_BUILD_DIR)/friendly_$(BENCH).dump"
+	@$(RISCV_OBJCOPY) -O binary "$(MIPS_BENCH_BUILD_DIR)/friendly_$(BENCH).elf" "$(MIPS_BENCH_BUILD_DIR)/friendly_$(BENCH).bin"
+	@powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/bin_to_word_hex.ps1 "$(MIPS_BENCH_BUILD_DIR)/friendly_$(BENCH).bin" "$(MIPS_BENCH_BUILD_DIR)/friendly_$(BENCH).hex" "$(MIPS_BENCH_BUILD_DIR)/friendly_$(BENCH)_program_info.vh"
+	@cp "$(MIPS_BENCH_BUILD_DIR)/friendly_$(BENCH).hex" "source/imem.txt"
+	@cp "$(MIPS_BENCH_BUILD_DIR)/friendly_$(BENCH)_program_info.vh" "source/program_info.vh"
+
+mips_run_friendly: mips_build_friendly
+	@$(MAKE) --no-print-directory compile
+	@echo "Running RV32I MIPS-friendly benchmark on MIPS_SUPERSCALAR: $(BENCH)"
+	@program_instrs=`awk 'END { print NR }' "$(MIPS_BENCH_BUILD_DIR)/friendly_$(BENCH).hex"`; \
+	powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Set-Location -LiteralPath '$(MIPS_ROOT)'; & '$(VVP)' '$(BENCH_VVP)' +MIPS_IMEM_WORDS=$${program_instrs} +MIPS_PROGRAM_INSTRS=$${program_instrs} +MIPS_MAX_CYCLES=$(MIPS_MAX_CYCLES) +MIPS_DRAIN_CYCLES=$(MIPS_DRAIN_CYCLES) $(MIPS_EXTRA_PLUSARGS)"
+
+mips_report_i:
+	@echo "=========================================="
+	@echo "MIPS_SUPERSCALAR RV32I-safe benchmark summary"
+	@echo "=========================================="
+	@mkdir -p sim
+	@total_commits=0; total_cycles=0; total_bench=0; total_fail=0; \
+	report_group() { \
+		group_name="$$1"; shift; \
+		group_commits=0; group_cycles=0; group_bench=0; group_fail=0; \
+		for b in "$$@"; do \
+			printf "Running %-8s ... " "$$b" >&2; \
+			out=`$(MAKE) --no-print-directory mips_run_clean BENCH=$$b 2>&1`; status=$$?; \
+			echo "$$out" > "sim/mips_report_$$b.log"; \
+			commits=`printf "%s\n" "$$out" | sed -n 's/.*MIPS_SUPERSCALAR PERF: cycles=[0-9][0-9]* commits=\([0-9][0-9]*\) IPC=.*/\1/p' | tail -n 1`; \
+			cycles=`printf "%s\n" "$$out" | sed -n 's/.*MIPS_SUPERSCALAR PERF: cycles=\([0-9][0-9]*\) commits=[0-9][0-9]* IPC=.*/\1/p' | tail -n 1`; \
+			bench_ipc=`printf "%s\n" "$$out" | sed -n 's/.*MIPS_SUPERSCALAR PERF: cycles=[0-9][0-9]* commits=[0-9][0-9]* IPC=\([0-9.][0-9.]*\).*/\1/p' | tail -n 1`; \
+			result=`printf "%s\n" "$$out" | sed -n 's/.*MIPS_SUPERSCALAR RESULT: \(PASS\).*/\1/p' | tail -n 1`; \
+			if [ -n "$$commits" ] && [ -n "$$cycles" ]; then \
+				group_commits=`expr $$group_commits + $$commits`; \
+				group_cycles=`expr $$group_cycles + $$cycles`; \
+			fi; \
+			if [ "$$status" -ne 0 ] || [ -z "$$commits" ] || [ -z "$$cycles" ]; then \
+				printf "UNKNOWN, see sim/mips_report_$$b.log\n" >&2; \
+				group_fail=`expr $$group_fail + 1`; \
+			elif [ "$$result" != "PASS" ]; then \
+				fail_id=`printf "%s\n" "$$out" | sed -n 's/.*MIPS_SUPERSCALAR RESULT: FAIL test_id=\([0-9][0-9]*\).*/\1/p' | tail -n 1`; \
+				printf "FAIL test_id=%s commits=%s cycles=%s IPC=%s\n" "$${fail_id:-?}" "$$commits" "$$cycles" "$$bench_ipc" >&2; \
+				group_fail=`expr $$group_fail + 1`; \
+			else \
+				printf "PASS commits=%s cycles=%s IPC=%s\n" "$$commits" "$$cycles" "$$bench_ipc" >&2; \
+			fi; \
+			group_bench=`expr $$group_bench + 1`; \
+		done; \
+		ipc=`awk -v c=$$group_commits -v y=$$group_cycles 'BEGIN { if (y > 0) printf "%.3f", c / y; else printf "0.000" }'`; \
+		printf "%-18s | %4d | %8d | %8d | %6s | %s\n" "$$group_name" "$$group_bench" "$$group_commits" "$$group_cycles" "$$ipc" "$$([ $$group_fail -eq 0 ] && echo PASS || echo FAIL:$$group_fail)"; \
+		total_commits=`expr $$total_commits + $$group_commits`; \
+		total_cycles=`expr $$total_cycles + $$group_cycles`; \
+		total_bench=`expr $$total_bench + $$group_bench`; \
+		total_fail=`expr $$total_fail + $$group_fail`; \
+	}; \
+	printf "%-18s | %4s | %8s | %8s | %6s | %s\n" "Group" "N" "Commits" "Cycles" "IPC" "Result"; \
+	printf "%-18s-+-%4s-+-%8s-+-%8s-+-%6s-+-%s\n" "------------------" "----" "--------" "--------" "------" "------"; \
+	report_group "RV32I R-type" $(RV32I_R_BENCHMARKS); \
+	report_group "RV32I I/shift" $(RV32I_I_BENCHMARKS); \
+	report_group "Load/Store" $(MIPS_LOAD_STORE_BENCHMARKS); \
+	total_ipc=`awk -v c=$$total_commits -v y=$$total_cycles 'BEGIN { if (y > 0) printf "%.3f", c / y; else printf "0.000" }'`; \
+	printf "%-18s-+-%4s-+-%8s-+-%8s-+-%6s-+-%s\n" "------------------" "----" "--------" "--------" "------" "------"; \
+	printf "%-18s | %4d | %8d | %8d | %6s | %s\n" "TOTAL" "$$total_bench" "$$total_commits" "$$total_cycles" "$$total_ipc" "$$([ $$total_fail -eq 0 ] && echo PASS || echo FAIL:$$total_fail)"; \
+	echo "Logs: sim/mips_report_<benchmark>.log"
+
+report_i: mips_report_i
+mips_report_im: mips_report_i
+
+mips_friendly_report_i:
+	@echo "=========================================="
+	@echo "MIPS_SUPERSCALAR RV32I-friendly benchmark summary"
+	@echo "=========================================="
+	@mkdir -p sim
+	@total_commits=0; total_cycles=0; total_bench=0; total_fail=0; \
+	report_group() { \
+		group_name="$$1"; shift; \
+		group_commits=0; group_cycles=0; group_bench=0; group_fail=0; \
+		for b in "$$@"; do \
+			printf "Running %-8s ... " "$$b" >&2; \
+			out=`$(MAKE) --no-print-directory mips_run_friendly BENCH=$$b 2>&1`; status=$$?; \
+			echo "$$out" > "sim/mips_friendly_report_$$b.log"; \
+			commits=`printf "%s\n" "$$out" | sed -n 's/.*MIPS_SUPERSCALAR PERF: cycles=[0-9][0-9]* commits=\([0-9][0-9]*\) IPC=.*/\1/p' | tail -n 1`; \
+			cycles=`printf "%s\n" "$$out" | sed -n 's/.*MIPS_SUPERSCALAR PERF: cycles=\([0-9][0-9]*\) commits=[0-9][0-9]* IPC=.*/\1/p' | tail -n 1`; \
+			bench_ipc=`printf "%s\n" "$$out" | sed -n 's/.*MIPS_SUPERSCALAR PERF: cycles=[0-9][0-9]* commits=[0-9][0-9]* IPC=\([0-9.][0-9.]*\).*/\1/p' | tail -n 1`; \
+			result=`printf "%s\n" "$$out" | sed -n 's/.*MIPS_SUPERSCALAR RESULT: \(PASS\).*/\1/p' | tail -n 1`; \
+			if [ -n "$$commits" ] && [ -n "$$cycles" ]; then \
+				group_commits=`expr $$group_commits + $$commits`; \
+				group_cycles=`expr $$group_cycles + $$cycles`; \
+			fi; \
+			if [ "$$status" -ne 0 ] || [ -z "$$commits" ] || [ -z "$$cycles" ]; then \
+				printf "UNKNOWN, see sim/mips_friendly_report_$$b.log\n" >&2; \
+				group_fail=`expr $$group_fail + 1`; \
+			elif [ "$$result" != "PASS" ]; then \
+				fail_id=`printf "%s\n" "$$out" | sed -n 's/.*MIPS_SUPERSCALAR RESULT: FAIL test_id=\([0-9][0-9]*\).*/\1/p' | tail -n 1`; \
+				printf "FAIL test_id=%s commits=%s cycles=%s IPC=%s\n" "$${fail_id:-?}" "$$commits" "$$cycles" "$$bench_ipc" >&2; \
+				group_fail=`expr $$group_fail + 1`; \
+			else \
+				printf "PASS commits=%s cycles=%s IPC=%s\n" "$$commits" "$$cycles" "$$bench_ipc" >&2; \
+			fi; \
+			group_bench=`expr $$group_bench + 1`; \
+		done; \
+		ipc=`awk -v c=$$group_commits -v y=$$group_cycles 'BEGIN { if (y > 0) printf "%.3f", c / y; else printf "0.000" }'`; \
+		printf "%-18s | %4d | %8d | %8d | %6s | %s\n" "$$group_name" "$$group_bench" "$$group_commits" "$$group_cycles" "$$ipc" "$$([ $$group_fail -eq 0 ] && echo PASS || echo FAIL:$$group_fail)"; \
+		total_commits=`expr $$total_commits + $$group_commits`; \
+		total_cycles=`expr $$total_cycles + $$group_cycles`; \
+		total_bench=`expr $$total_bench + $$group_bench`; \
+		total_fail=`expr $$total_fail + $$group_fail`; \
+	}; \
+	printf "%-18s | %4s | %8s | %8s | %6s | %s\n" "Group" "N" "Commits" "Cycles" "IPC" "Result"; \
+	printf "%-18s-+-%4s-+-%8s-+-%8s-+-%6s-+-%s\n" "------------------" "----" "--------" "--------" "------" "------"; \
+	report_group "RV32I R-type" $(RV32I_R_BENCHMARKS); \
+	report_group "RV32I I/shift" $(RV32I_I_BENCHMARKS); \
+	report_group "Load/Store" $(MIPS_LOAD_STORE_BENCHMARKS); \
+	total_ipc=`awk -v c=$$total_commits -v y=$$total_cycles 'BEGIN { if (y > 0) printf "%.3f", c / y; else printf "0.000" }'`; \
+	printf "%-18s-+-%4s-+-%8s-+-%8s-+-%6s-+-%s\n" "------------------" "----" "--------" "--------" "------" "------"; \
+	printf "%-18s | %4d | %8d | %8d | %6s | %s\n" "TOTAL" "$$total_bench" "$$total_commits" "$$total_cycles" "$$total_ipc" "$$([ $$total_fail -eq 0 ] && echo PASS || echo FAIL:$$total_fail)"; \
+	echo "Logs: sim/mips_friendly_report_<benchmark>.log"
+
+mips_friendly_report_im: mips_friendly_report_i

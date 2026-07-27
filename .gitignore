@@ -1,0 +1,26 @@
+# Generated simulation/build outputs
+build/
+sim/
+waveform/
+
+# Tool/runtime caches
+*.vcd
+*.vvp
+*.elf
+*.bin
+*.dump
+*.log
+__pycache__/
+*.pyc
+
+# Keep only the benchmark subsets needed by this public repo.
+riscv-tests-master/isa/*
+!riscv-tests-master/isa/macros/
+!riscv-tests-master/isa/macros/scalar/
+!riscv-tests-master/isa/macros/scalar/**
+!riscv-tests-master/isa/rv32i_mips_friendly/
+!riscv-tests-master/isa/rv32i_mips_friendly/**
+!riscv-tests-master/isa/rv32i_mips_safe/
+!riscv-tests-master/isa/rv32i_mips_safe/**
+!riscv-tests-master/isa/rv32im_clean/
+!riscv-tests-master/isa/rv32im_clean/**
